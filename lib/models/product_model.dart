@@ -1,37 +1,35 @@
-class ProductModel {
-  final int id;
+class Product {
+  final String id;
   final String name;
-  final String description;
   final double price;
-  final String image;
+  final String imageUrl;
+  final String description;
+  final String category;
 
-  ProductModel({
+  const Product({
     required this.id,
     required this.name,
-    required this.description,
     required this.price,
-    required this.image,
+    required this.imageUrl,
+    required this.description,
+    required this.category,
   });
 
-  // 🔹 FROM JSON (API → APP)
-  factory ProductModel.fromJson(Map<String, dynamic> json) {
-    return ProductModel(
-      id: json['id'],
-      name: json['name'] ?? '',
-      description: json['description'] ?? '',
-      price: (json['price'] as num).toDouble(),
-      image: json['image'] ?? '',
-    );
-  }
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'name': name,
+        'price': price,
+        'imageUrl': imageUrl,
+        'description': description,
+        'category': category,
+      };
 
-  // 🔹 TO JSON (APP → API)
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'price': price,
-      'image': image,
-    };
-  }
+  factory Product.fromMap(Map<String, dynamic> map) => Product(
+        id: map['id'] ?? '',
+        name: map['name'] ?? '',
+        price: (map['price'] ?? 0).toDouble(),
+        imageUrl: map['imageUrl'] ?? '',
+        description: map['description'] ?? '',
+        category: map['category'] ?? '',
+      );
 }

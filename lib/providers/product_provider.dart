@@ -5,7 +5,7 @@ import '../services/product_service.dart';
 class ProductProvider with ChangeNotifier {
   final ProductService _service = ProductService();
 
-  List<ProductModel> products = [];
+  List<Product> products = [];
   bool isLoading = false;
 
   Future<void> fetchProducts() async {

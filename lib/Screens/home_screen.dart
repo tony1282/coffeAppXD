@@ -1,6 +1,17 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../config/constants.dart';
+import '../../models/product_model.dart';
+import '../../providers/cart_provider.dart';
+import '../../screens/orders/cart_screen.dart';
+import '../../screens/orders/order_history_screen.dart';
+import '../../screens/products/product_detail_screen.dart';
+import '../../screens/profile/profile_screen.dart';
+import '/widgets/home/home_header.dart';
+import '/widgets/home/category_chips.dart';
+import '/widgets/home/product_grid.dart';
+import '/widgets/home/cart_bar.dart';
+import '/widgets/home/home_nav_bar.dart';
+import '/widgets/home/product_search_delegate.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -10,611 +21,212 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedCategory = 0;
   int _selectedNav = 0;
-  final List<Map<String, dynamic>> _cartItems = [];
+  String _selectedCategory = 'Todo';
+  final CartProvider _cart = CartProvider();
 
-  static const Color primary = Color(0xFF1A2F5E);
-  static const Color primaryLight = Color(0xFF2A4A8E);
-  static const Color background = Color(0xFFF5F7FB);
-  static const Color textDark = Color(0xFF1A2F5E);
-  static const Color textGrey = Color(0xFF7A8BA8);
-  static const Color cardBg = Color(0xFFFFFFFF);
+  final List<String> _categories = ['Todo', 'Café frío', 'Caliente', 'Galletas'];
 
-  final List<Map<String, dynamic>> _categories = [
-    {'label': 'Todo', 'icon': Icons.local_fire_department_rounded},
-    {'label': 'Café Caliente', 'icon': Icons.coffee_rounded},
-    {'label': 'Café Frío', 'icon': Icons.ac_unit_rounded},
-    {'label': 'Pastelería', 'icon': Icons.cookie_outlined},
-    {'label': 'Granos', 'icon': Icons.grass_rounded},
+  final List<Product> _products = [
+    Product(
+      id: '1',
+      name: 'Americano Clásico',
+      price: 5.50,
+      imageUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400',
+      description: 'Caliente',
+      category: 'Caliente',
+    ),
+    Product(
+      id: '2',
+      name: 'Espresso Doble',
+      price: 3.50,
+      imageUrl: 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=400',
+      description: 'Intenso y concentrado',
+      category: 'Caliente',
+    ),
+    Product(
+      id: '3',
+      name: 'Capuchino',
+      price: 6.00,
+      imageUrl: 'https://images.unsplash.com/photo-1534778101976-62847782c213?w=400',
+      description: 'Con espuma de leche',
+      category: 'Caliente',
+    ),
+    Product(
+      id: '4',
+      name: 'Frappé de Caramelo',
+      price: 7.50,
+      imageUrl: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400',
+      description: 'Refrescante y dulce',
+      category: 'Café frío',
+    ),
+    Product(
+      id: '5',
+      name: 'Cold Brew',
+      price: 6.50,
+      imageUrl: 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=400',
+      description: 'Suave y sin acidez',
+      category: 'Café frío',
+    ),
+    Product(
+      id: '6',
+      name: 'Galleta de Avena',
+      price: 2.50,
+      imageUrl: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=400',
+      description: 'Recién horneada',
+      category: 'Galletas',
+    ),
+    Product(
+      id: '7',
+      name: 'Chocolate Chip Cookie',
+      price: 2.75,
+      imageUrl: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400',
+      description: 'Con chips de chocolate',
+      category: 'Galletas',
+    ),
+    Product(
+      id: '8',
+      name: 'Latte Helado',
+      price: 6.00,
+      imageUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400',
+      description: 'Suave con hielo',
+      category: 'Café frío',
+    ),
   ];
 
-  final List<Map<String, dynamic>> _products = [
-    {
-      'name': 'Espresso Intenso',
-      'category': 'Café Caliente',
-      'categoryLabel': 'CAFÉ CALIENTE',
-      'price': 3.50,
-      'image': 'https://images.unsplash.com/photo-1510707577719-ae7c14805e3a?w=400',
-    },
-    {
-      'name': 'Latte de Avena',
-      'category': 'Café Caliente',
-      'categoryLabel': 'CAFÉ CALIENTE',
-      'price': 4.75,
-      'image': 'https://images.unsplash.com/photo-1561882468-9110e03e0f78?w=400',
-    },
-    {
-      'name': 'Cold Brew Vainilla',
-      'category': 'Café Frío',
-      'categoryLabel': 'COLD BREW',
-      'price': 5.25,
-      'image': 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400',
-    },
-    {
-      'name': 'Iced Mocha',
-      'category': 'Café Frío',
-      'categoryLabel': 'COLD BREW',
-      'price': 5.50,
-      'image': 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=400',
-    },
-    {
-      'name': 'Croissant de Mantequilla',
-      'category': 'Pastelería',
-      'categoryLabel': 'PASTELERÍA',
-      'price': 3.25,
-      'image': 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400',
-    },
-    {
-      'name': 'Muffin de Arándanos',
-      'category': 'Pastelería',
-      'categoryLabel': 'PASTELERÍA',
-      'price': 3.50,
-      'image': 'https://images.unsplash.com/photo-1607958996333-41aef7caefaa?w=400',
-    },
-    {
-      'name': 'Granos Etíopes 250g',
-      'category': 'Granos',
-      'categoryLabel': 'GRANOS',
-      'price': 18.00,
-      'image': 'https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=400',
-    },
-    {
-      'name': 'Mezcla de la Casa',
-      'category': 'Granos',
-      'categoryLabel': 'GRANOS',
-      'price': 15.50,
-      'image': 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400',
-    },
-  ];
-
-  List<Map<String, dynamic>> get _filteredProducts {
-    if (_selectedCategory == 0) return _products;
-    final cat = _categories[_selectedCategory]['label'];
-    return _products.where((p) => p['category'] == cat).toList();
+  List<Product> get _filteredProducts {
+    if (_selectedCategory == 'Todo') return _products;
+    return _products
+        .where((p) => p.category == _selectedCategory)
+        .toList();
   }
 
-  double get _cartTotal =>
-      _cartItems.fold(0, (sum, item) => sum + item['price'] * item['qty']);
+  // ── Navegación ────────────────────────────────────────────────────────────
 
-  int get _cartCount =>
-      _cartItems.fold(0, (sum, item) => sum + (item['qty'] as int));
-
-  void _addToCart(Map<String, dynamic> product) {
-    setState(() {
-      final existing = _cartItems.indexWhere((i) => i['name'] == product['name']);
-      if (existing >= 0) {
-        _cartItems[existing]['qty']++;
-      } else {
-        _cartItems.add({...product, 'qty': 1});
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final firstName = user?.displayName?.split(' ').first ?? 'Usuario';
-
-    return Scaffold(
-      backgroundColor: background,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                // Header
-                Container(
-                  color: Colors.white,
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: primary,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.coffee_rounded,
-                                color: Colors.white, size: 22),
-                          ),
-                          const SizedBox(width: 10),
-                          const Text(
-                            'COFFEE SHOP',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              color: primary,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(Icons.search_rounded,
-                            color: textDark, size: 26),
-                      ),
-                    ],
-                  ),
-                ),
-
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 140),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Título
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 4),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Hola, $firstName 👋',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: textGrey,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Elige tu café',
-                                style: TextStyle(
-                                  fontSize: 30,
-                                  fontWeight: FontWeight.w800,
-                                  color: textDark,
-                                ),
-                              ),
-                              const Text(
-                                'Preparado con amor, servido fresco.',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: textGrey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // Categorías
-                        SizedBox(
-                          height: 44,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            itemCount: _categories.length,
-                            separatorBuilder: (_, __) => const SizedBox(width: 10),
-                            itemBuilder: (context, i) {
-                              final selected = _selectedCategory == i;
-                              return GestureDetector(
-                                onTap: () => setState(() => _selectedCategory = i),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color: selected ? primary : Colors.white,
-                                    borderRadius: BorderRadius.circular(22),
-                                    border: Border.all(
-                                      color: selected ? primary : Colors.grey.shade200,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        _categories[i]['icon'],
-                                        size: 16,
-                                        color: selected ? Colors.white : textGrey,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        _categories[i]['label'],
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: selected ? Colors.white : textGrey,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // Grid de productos
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              mainAxisSpacing: 16,
-                              crossAxisSpacing: 14,
-                              childAspectRatio: 0.78,
-                            ),
-                            itemCount: _filteredProducts.length,
-                            itemBuilder: (context, i) {
-                              final product = _filteredProducts[i];
-                              return _ProductCard(
-                                product: product,
-                                onAdd: () => _addToCart(product),
-                              );
-                            },
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // Banner novedad
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Container(
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: primary,
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        child: const Text(
-                                          'Nuevo',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      const Text(
-                                        'Mezcla de Temporada',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      const Text(
-                                        'Prueba nuestro nuevo blend con\nnotas de chocolate y avellana.',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.white70,
-                                          height: 1.4,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Icon(Icons.coffee_maker_outlined,
-                                    size: 56, color: Colors.white),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            // Cart FAB
-            if (_cartCount > 0)
-              Positioned(
-                bottom: 80,
-                left: 20,
-                right: 20,
-                child: GestureDetector(
-                  onTap: () {},
-                  child: Container(
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: primary,
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: primary.withOpacity(0.35),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 16),
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.shopping_bag_outlined,
-                              color: Colors.white, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '$_cartCount ${_cartCount == 1 ? 'Producto' : 'Productos'}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          '\$${_cartTotal.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'Ver carrito >',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-            // Bottom Nav
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 70,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
-                      blurRadius: 16,
-                      offset: const Offset(0, -4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _NavItem(
-                      icon: Icons.restaurant_menu_rounded,
-                      label: 'Menú',
-                      selected: _selectedNav == 0,
-                      onTap: () => setState(() => _selectedNav = 0),
-                    ),
-                    _NavItem(
-                      icon: Icons.receipt_long_rounded,
-                      label: 'Pedidos',
-                      selected: _selectedNav == 1,
-                      onTap: () => setState(() => _selectedNav = 1),
-                    ),
-                    _NavItem(
-                      icon: Icons.person_outline_rounded,
-                      label: 'Perfil',
-                      selected: _selectedNav == 2,
-                      onTap: () => setState(() => _selectedNav = 2),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+  void _goToProduct(Product product) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProductDetailScreen(
+          product: product,
+          onAddToCart: () {
+            _cart.add(product);
+            setState(() {});
+          },
         ),
       ),
     );
   }
-}
 
-class _ProductCard extends StatelessWidget {
-  final Map<String, dynamic> product;
-  final VoidCallback onAdd;
-
-  const _ProductCard({required this.product, required this.onAdd});
-
-  static const Color primary = Color(0xFF1A2F5E);
-  static const Color textDark = Color(0xFF1A2F5E);
-  static const Color textGrey = Color(0xFF7A8BA8);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(18),
-                  ),
-                  child: CachedNetworkImage(
-                    imageUrl: product['image'],
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: Colors.grey.shade100,
-                    ),
-                    errorWidget: (context, url, error) => const Icon(
-                      Icons.coffee_rounded,
-                      color: Color(0xFF1A2F5E),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 8,
-                  left: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      product['categoryLabel'],
-                      style: const TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: textGrey,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 8,
-                  right: 8,
-                  child: GestureDetector(
-                    onTap: onAdd,
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: const BoxDecoration(
-                        color: primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.add, color: Colors.white, size: 18),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product['name'],
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: textDark,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '\$${product['price'].toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+  void _goToCart() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CartScreen(
+          cartItems: _cart.items.toList(),
+          onOrderPlaced: () {
+            setState(() => _cart.clear());
+          },
+        ),
       ),
     );
   }
-}
 
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+  void _goToOrderHistory() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const OrderHistoryScreen()),
+    ).then((_) => setState(() => _selectedNav = 0));
+  }
 
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+  void _goToProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+    ).then((_) => setState(() => _selectedNav = 0));
+  }
 
-  static const Color primary = Color(0xFF1A2F5E);
-  static const Color textGrey = Color(0xFF7A8BA8);
+  void _openSearch() {
+    showSearch(
+      context: context,
+      delegate: ProductSearchDelegate(
+        products: _products,
+        onAddToCart: (p) {
+          _cart.add(p);
+          setState(() {});
+        },
+        onTap: _goToProduct,
+      ),
+    );
+  }
+
+  void _addToCart(Product p) {
+    _cart.add(p);
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${p.name} agregado'),
+        duration: const Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.primary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: selected ? primary : textGrey, size: 24),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-              color: selected ? primary : textGrey,
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Header ──
+            HomeHeader(onSearchTap: _openSearch),
+
+            const SizedBox(height: 12),
+
+            // ── Categorías ──
+            CategoryChips(
+              categories: _categories,
+              selected: _selectedCategory,
+              onSelect: (cat) => setState(() => _selectedCategory = cat),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 10),
+
+            // ── Grid de productos ──
+            Expanded(
+              child: ProductGrid(
+                products: _filteredProducts,
+                onTap: _goToProduct,
+                onAdd: _addToCart,
+              ),
+            ),
+
+            // ── Barra del carrito ──
+            if (_cart.isNotEmpty)
+              CartBar(
+                itemCount: _cart.itemCount,
+                total: _cart.total,
+                onTap: _goToCart,
+              ),
+
+            // ── NavBar ──
+            HomeNavBar(
+              selected: _selectedNav,
+              onMenu: () => setState(() => _selectedNav = 0),
+              onOrders: () {
+                setState(() => _selectedNav = 1);
+                _goToOrderHistory();
+              },
+              onProfile: () {
+                setState(() => _selectedNav = 2);
+                _goToProfile();
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
