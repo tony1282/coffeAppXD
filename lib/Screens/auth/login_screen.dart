@@ -19,21 +19,28 @@ class _LoginScreenState extends State<LoginScreen> {
   static const Color textDark   = Color(0xFF1A1A1A);
   static const Color textGrey   = Color(0xFF8A8A8A);
 
+  // Redirige a /admin o /home según el rol cargado en el provider
+  void _redirect() {
+    if (!mounted) return;
+    final isAdmin = context.read<AuthProvider>().isAdmin;
+    Navigator.pushReplacementNamed(
+      context,
+      isAdmin ? '/admin' : '/home',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
 
     return Scaffold(
       backgroundColor: background,
-      // Hace que el body se redimensione cuando sube el teclado
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: SingleChildScrollView(
-          // El scroll solo aparece cuando el teclado lo necesita
           physics: const ClampingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 28),
           child: ConstrainedBox(
-            // Mínimo: ocupa toda la pantalla disponible
             constraints: BoxConstraints(
               minHeight: MediaQuery.of(context).size.height -
                          MediaQuery.of(context).padding.top -
@@ -49,8 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     children: [
                       Container(
-                        width: 48,
-                        height: 48,
+                        width: 48, height: 48,
                         decoration: BoxDecoration(
                           color: primary,
                           borderRadius: BorderRadius.circular(14),
@@ -59,34 +65,24 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: Colors.white, size: 28),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
-                        'COFFEE SHOP',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: primary,
-                        ),
-                      ),
+                      const Text('COFFEE SHOP',
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: primary)),
                     ],
                   ),
 
-                  // Spacer flexible — se encoge cuando sube el teclado
                   const Spacer(),
 
-                  // Título
-                  const Text(
-                    'Bienvenido ☕',
-                    style: TextStyle(
-                      fontSize: 34,
-                      fontWeight: FontWeight.w800,
-                      color: textDark,
-                    ),
-                  ),
+                  const Text('Bienvenido ☕',
+                      style: TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w800,
+                          color: textDark)),
                   const SizedBox(height: 6),
-                  const Text(
-                    'Inicia sesión para continuar',
-                    style: TextStyle(color: textGrey),
-                  ),
+                  const Text('Inicia sesión para continuar',
+                      style: TextStyle(color: textGrey)),
 
                   const SizedBox(height: 30),
 
@@ -98,8 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: InputDecoration(
                       labelText: 'Correo',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+                          borderRadius: BorderRadius.circular(14)),
                     ),
                   ),
 
@@ -113,8 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: InputDecoration(
                       labelText: 'Contraseña',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+                          borderRadius: BorderRadius.circular(14)),
                       suffixIcon: IconButton(
                         icon: Icon(_showPassword
                             ? Icons.visibility
@@ -127,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 20),
 
-                  // Botón login
+                  // ── Botón email ──────────────────────────────────
                   SizedBox(
                     width: double.infinity,
                     height: 55,
@@ -140,11 +134,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   emailCtrl.text.trim(),
                                   passCtrl.text.trim(),
                                 );
-                                if (context.mounted) {
-                                  Navigator.pushReplacementNamed(
-                                      context, '/home');
-                                }
+                                _redirect();
                               } catch (e) {
+                                if (!mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(content: Text(e.toString())),
                                 );
@@ -153,35 +145,30 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primary,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
+                            borderRadius: BorderRadius.circular(16)),
                       ),
                       child: auth.isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                              'Iniciar sesión',
-                              style: TextStyle(color: Colors.white),
-                            ),
+                          ? const CircularProgressIndicator(
+                              color: Colors.white)
+                          : const Text('Iniciar sesión',
+                              style: TextStyle(color: Colors.white)),
                     ),
                   ),
 
                   const SizedBox(height: 16),
 
-                  // Divider
-                  const Row(
-                    children: [
-                      Expanded(child: Divider()),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10),
-                        child: Text('o'),
-                      ),
-                      Expanded(child: Divider()),
-                    ],
-                  ),
+                  const Row(children: [
+                    Expanded(child: Divider()),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10),
+                      child: Text('o'),
+                    ),
+                    Expanded(child: Divider()),
+                  ]),
 
                   const SizedBox(height: 16),
 
-                  // Google
+                  // ── Botón Google ─────────────────────────────────
                   SizedBox(
                     width: double.infinity,
                     height: 55,
@@ -189,46 +176,43 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: auth.isLoading
                           ? null
                           : () async {
-                              await auth.signInWithGoogle();
-                              if (context.mounted) {
-                                Navigator.pushReplacementNamed(
-                                    context, '/home');
+                              try {
+                                await auth.signInWithGoogle();
+                                _redirect();
+                              } catch (e) {
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(e.toString())),
+                                );
                               }
                             },
                       style: OutlinedButton.styleFrom(
                         backgroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
+                            borderRadius: BorderRadius.circular(16)),
                       ),
-                      child: const Text(
-                        'Continuar con Google',
-                        style: TextStyle(color: textDark),
-                      ),
+                      child: const Text('Continuar con Google',
+                          style: TextStyle(color: textDark)),
                     ),
                   ),
 
                   const SizedBox(height: 20),
 
-                  // Registro
                   Center(
                     child: TextButton(
                       onPressed: () =>
                           Navigator.pushNamed(context, '/register'),
-                      child: const Text(
-                        '¿No tienes cuenta? Crear cuenta',
-                        style: TextStyle(color: primary),
-                      ),
+                      child: const Text('¿No tienes cuenta? Crear cuenta',
+                          style: TextStyle(color: primary)),
                     ),
                   ),
 
                   const Spacer(),
 
                   Center(
-                    child: Text(
-                      '© 2026 Coffee Shop',
-                      style: TextStyle(color: textGrey.withOpacity(0.6)),
-                    ),
+                    child: Text('© 2026 Coffee Shop',
+                        style: TextStyle(
+                            color: textGrey.withOpacity(0.6))),
                   ),
 
                   const SizedBox(height: 20),

@@ -3,31 +3,35 @@ class UserModel {
   final String userName;
   final String userEmail;
   final String photoUrl;
+  final String rol; // 'cliente' | 'admin'
 
   UserModel({
     required this.userId,
     required this.userName,
     required this.userEmail,
     required this.photoUrl,
+    this.rol = 'cliente',
   });
 
-  // Para guardar en Firestore
+  bool get isAdmin => rol == 'admin';
+
   Map<String, dynamic> toMap() {
     return {
       'userId': userId,
       'userName': userName,
       'userEmail': userEmail,
       'photoUrl': photoUrl,
+      'rol': rol,
     };
   }
 
-  // Para leer de Firestore
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
-      userId: map['userId'] ?? '',
-      userName: map['userName'] ?? '',
+      userId:    map['userId']    ?? '',
+      userName:  map['userName']  ?? '',
       userEmail: map['userEmail'] ?? '',
-      photoUrl: map['photoUrl'] ?? '',
+      photoUrl:  map['photoUrl']  ?? '',
+      rol:       map['rol']       ?? 'cliente',
     );
   }
 }
