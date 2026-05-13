@@ -91,7 +91,7 @@ class ProductSearchDelegate extends SearchDelegate<Product?> {
           leading: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.network(
-              p.imageUrl,
+              p.imgUrl,
               width: 52,
               height: 52,
               fit: BoxFit.cover,

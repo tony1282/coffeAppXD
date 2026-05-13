@@ -14,7 +14,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final passCtrl  = TextEditingController();
   bool _showPassword = false;
 
-  static const Color primary    = Color(0xFFFF6B35);
+  static const Color primary    = Color(0xFF3B5EFF);
   static const Color background = Color(0xFFFFFBF8);
   static const Color textDark   = Color(0xFF1A1A1A);
   static const Color textGrey   = Color(0xFF8A8A8A);

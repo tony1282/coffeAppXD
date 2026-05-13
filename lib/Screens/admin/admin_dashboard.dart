@@ -1,754 +1,640 @@
+import 'package:coffe_app/widgets/admin/dashboard_kpi_card.dart';
+import 'package:coffe_app/widgets/admin/dashboard_mini_stat.dart';
+import 'package:coffe_app/widgets/admin/dashboard_order_tile.dart';
+import 'package:coffe_app/widgets/admin/dashboard_product_admin_tile.dart';
+import 'package:coffe_app/widgets/admin/dashboard_sales_bar_row.dart';
+import 'package:coffe_app/widgets/admin/dashboard_section_header.dart';
+import 'package:coffe_app/widgets/admin/dashboard_tab_bar.dart';
+import 'package:coffe_app/widgets/admin/dashboard_top_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/constants.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/order_provider.dart';
+import '../../providers/product_provider.dart';
+import '../../models/order_model.dart';
+import '../../models/product_model.dart';
+import 'products/admin_product_form.dart';
+
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
+
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
-class _AdminDashboardState extends State<AdminDashboard> {
+class _AdminDashboardState extends State<AdminDashboard>
+    with SingleTickerProviderStateMixin {
   int _tab = 0;
+  late final AnimationController _fadeCtrl;
+  late final Animation<double> _fadeAnim;
 
-  // ── Datos de ejemplo (reemplaza con tu Provider/Service) ────────
-  final List<_Order> _orders = [
-    _Order('001', 'Ana García',    ['Americano', 'Galleta'],  85.50,  'pendiente'),
-    _Order('002', 'Luis Pérez',    ['Cold Brew', 'Frappé'],   134.00, 'preparando'),
-    _Order('003', 'María López',   ['Capuchino x2'],           120.00, 'listo'),
-    _Order('004', 'Carlos Ruiz',   ['Espresso', 'Avena'],      62.25,  'entregado'),
-    _Order('005', 'Sofía Méndez',  ['Latte Helado'],           60.00,  'pendiente'),
-    _Order('006', 'Jorge Torres',  ['Americano x3'],           165.00, 'preparando'),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fadeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
+    _fadeCtrl.forward();
 
-  final List<_Product> _products = [
-    _Product('Americano Clásico', 'Caliente',   55.00,  42),
-    _Product('Cold Brew',         'Café frío',  65.00,  38),
-    _Product('Capuchino',         'Caliente',   60.00,  31),
-    _Product('Frappé Caramelo',   'Café frío',  75.00,  27),
-    _Product('Galleta de Avena',  'Galletas',   25.00,  55),
-    _Product('Espresso Doble',    'Caliente',   35.00,  20),
-  ];
+    // Cargar datos al iniciar
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
+  }
+
+  @override
+  void dispose() {
+    _fadeCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    final orderProvider = context.read<OrderProvider>();
+    final productProvider = context.read<ProductProvider>();
+
+    await Future.wait([
+      orderProvider.fetchOrders(),
+      productProvider.fetchProducts(),
+    ]);
+  }
+
+  void _switchTab(int i) {
+    if (_tab == i) return;
+    _fadeCtrl.reverse().then((_) {
+      setState(() => _tab = i);
+      _fadeCtrl.forward();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    final nombre = auth.userModel?.userName ?? 'Admin';
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            _buildTopBar(nombre, auth),
-            _buildTabBar(),
-            Expanded(child: _buildBody()),
+            const DashboardTopBar(),
+            Consumer<OrderProvider>(
+              builder: (context, orderProvider, _) {
+                final pendingCount = orderProvider.orders
+                    .where((o) => o.status == 'pendiente')
+                    .length;
+                return DashboardTabBar(
+                  currentTab: _tab,
+                  pendingCount: pendingCount,
+                  onTap: _switchTab,
+                );
+              },
+            ),
+            Expanded(
+              child: FadeTransition(
+                opacity: _fadeAnim,
+                child: _buildBody(),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  // ── Top bar ─────────────────────────────────────────────────────
-  Widget _buildTopBar(String nombre, AuthProvider auth) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        border: const Border(bottom: BorderSide(color: AppColors.textGrey)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Logo
-          Container(
-            width: 38, height: 38,
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.coffee_rounded, color: Colors.white, size: 22),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('COFFEE SHOP',
-                    style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 13,
-                        letterSpacing: 1.5)),
-                Text('Hola, $nombre',
-                    style: const TextStyle(
-                        color: AppColors.textGrey, fontSize: 11)),
-              ],
-            ),
-          ),
-          // Badge admin
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.primary.withOpacity(0.4)),
-            ),
-            child: const Text('ADMIN',
-                style: TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1)),
-          ),
-          const SizedBox(width: 8),
-          // Logout
-          IconButton(
-            onPressed: () async {
-              await context.read<AuthProvider>().logout();
-              if (mounted) {
-                Navigator.of(context)
-                    .pushNamedAndRemoveUntil('/login', (_) => false);
-              }
-            },
-            icon: const Icon(Icons.logout_rounded,
-                color: AppColors.textGrey, size: 20),
-            tooltip: 'Cerrar sesión',
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Tabs ─────────────────────────────────────────────────────────
-  Widget _buildTabBar() {
-    final tabs = [
-      (Icons.dashboard_rounded,    'Resumen'),
-      (Icons.receipt_long_rounded, 'Pedidos'),
-      (Icons.coffee_rounded,       'Productos'),
-    ];
-    return Container(
-      color: AppColors.card,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Row(
-        children: List.generate(tabs.length, (i) {
-          final active = _tab == i;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _tab = i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.only(right: 6),
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                decoration: BoxDecoration(
-                  color: active ? AppColors.primary : AppColors.background,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: active ? AppColors.primary : AppColors.textGrey.withOpacity(0.3),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(tabs[i].$1,
-                        size: 14,
-                        color: active ? Colors.white : AppColors.textGrey),
-                    const SizedBox(width: 5),
-                    Text(tabs[i].$2,
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: active ? Colors.white : AppColors.textGrey)),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-
-  // ── Body ──────────────────────────────────────────────────────────
   Widget _buildBody() {
     switch (_tab) {
-      case 0: return _buildResumen();
-      case 1: return _buildPedidos();
-      case 2: return _buildProductos();
-      default: return _buildResumen();
+      case 0:
+        return _buildResumen();
+      case 1:
+        return _buildPedidos();
+      case 2:
+        return _buildProductos();
+      default:
+        return _buildResumen();
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════
   // TAB 0 — RESUMEN
-  // ═══════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════
   Widget _buildResumen() {
-    final pendientes  = _orders.where((o) => o.status == 'pendiente').length;
-    final preparando  = _orders.where((o) => o.status == 'preparando').length;
-    final ingresos    = _orders.fold<double>(0, (s, o) => s + o.total);
+    return Consumer2<OrderProvider, ProductProvider>(
+      builder: (context, orderProvider, productProvider, _) {
+        final orders = orderProvider.orders;
+        final products = productProvider.products;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // ── Fecha ──────────────────────────────────────────────
-        Row(children: [
-          const Icon(Icons.calendar_today_rounded,
-              size: 13, color: AppColors.textGrey),
-          const SizedBox(width: 6),
-          Text(_today(),
-              style: const TextStyle(
-                  color: AppColors.textGrey, fontSize: 12)),
-        ]),
-        const SizedBox(height: 16),
+        final pendientes = orders.where((o) => o.status == 'pendiente').length;
+        final preparando = orders.where((o) => o.status == 'preparando').length;
+        final ingresos = orders.fold<double>(0, (s, o) => s + o.total);
+        final maxSold = products.isNotEmpty
+            ? products.map((p) => p.totalSold ?? 0).reduce((a, b) => a > b ? a : b)
+            : 0;
 
-        // ── KPIs ───────────────────────────────────────────────
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 1.55,
-          children: [
-            _KpiCard(
-              icon: Icons.receipt_long_rounded,
-              label: 'Pedidos hoy',
-              value: '${_orders.length}',
-              color: AppColors.primary,
-            ),
-            _KpiCard(
-              icon: Icons.attach_money_rounded,
-              label: 'Ingresos',
-              value: '\$${ingresos.toStringAsFixed(0)}',
-              color: AppColors.warning,
-            ),
-            _KpiCard(
-              icon: Icons.pending_actions_rounded,
-              label: 'Pendientes',
-              value: '$pendientes',
-              color: AppColors.error,
-            ),
-            _KpiCard(
-              icon: Icons.local_fire_department_rounded,
-              label: 'En preparación',
-              value: '$preparando',
-              color: AppColors.success,
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 22),
-
-        // ── Pedidos recientes ───────────────────────────────────
-        const _SectionTitle('Pedidos recientes'),
-        const SizedBox(height: 10),
-        ..._orders.take(4).map((o) => _OrderTile(order: o,
-            onStatusChange: (s) => setState(() => o.status = s))),
-
-        const SizedBox(height: 22),
-
-        // ── Productos más vendidos ──────────────────────────────
-        const _SectionTitle('Más vendidos hoy'),
-        const SizedBox(height: 10),
-        ..._products.take(3).map((p) => _ProductMiniTile(product: p)),
-      ],
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  // TAB 1 — PEDIDOS
-  // ═══════════════════════════════════════════════════════════════
-  Widget _buildPedidos() {
-    final filtros = ['Todos', 'Pendiente', 'Preparando', 'Listo', 'Entregado'];
-    return StatefulBuilder(
-      builder: (ctx, setSt) {
-        String filtro = 'Todos';
-        return StatefulBuilder(builder: (ctx2, setSt2) {
-          final lista = filtro == 'Todos'
-              ? _orders
-              : _orders.where(
-                  (o) => o.status == filtro.toLowerCase()).toList();
-          return Column(
+        return RefreshIndicator(
+          onRefresh: _loadData,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
             children: [
-              // Filtros
-              SizedBox(
-                height: 44,
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
-                  scrollDirection: Axis.horizontal,
-                  itemCount: filtros.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 6),
-                  itemBuilder: (_, i) {
-                    final active = filtro == filtros[i];
-                    return GestureDetector(
-                      onTap: () => setSt2(() => filtro = filtros[i]),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: active ? AppColors.primary : AppColors.background,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: active ? AppColors.primary : AppColors.textGrey.withOpacity(0.3)),
-                        ),
-                        child: Text(filtros[i],
-                            style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: active
-                                    ? Colors.white
-                                    : AppColors.textGrey)),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                  children: lista
-                      .map((o) => _OrderTile(
-                            order: o,
-                            expanded: true,
-                            onStatusChange: (s) =>
-                                setState(() => o.status = s),
-                          ))
-                      .toList(),
-                ),
-              ),
+              _buildHeader(),
+              const SizedBox(height: 20),
+              _buildKpiGrid(pendientes, preparando, ingresos, orders.length),
+              const SizedBox(height: 26),
+              _buildRecentOrders(orders),
+              const SizedBox(height: 26),
+              _buildTopProducts(products, maxSold),
             ],
-          );
-        });
+          ),
+        );
       },
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // TAB 2 — PRODUCTOS
-  // ═══════════════════════════════════════════════════════════════
-  Widget _buildProductos() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
+  Widget _buildHeader() {
+    return Row(
       children: [
-        // Botón agregar
-        SizedBox(
-          width: double.infinity,
-          height: 46,
-          child: ElevatedButton.icon(
-            onPressed: () {
-              // Navigator.pushNamed(context, '/admin/producto/nuevo');
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Agregar producto — conecta tu ruta'),
-                  backgroundColor: AppColors.primary,
-                  behavior: SnackBarBehavior.floating,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Panel de control',
+                style: TextStyle(
+                  color: AppColors.textDark,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.3,
                 ),
-              );
-            },
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Agregar producto',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+              ),
+              const SizedBox(height: 3),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_today_rounded,
+                    size: 11,
+                    color: AppColors.textGrey,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    _today(),
+                    style: const TextStyle(
+                      color: AppColors.textGrey,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKpiGrid(int pendientes, int preparando, double ingresos, int totalOrders) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: 1.35,
+      children: [
+        DashboardKpiCard(
+          icon: Icons.receipt_long_rounded,
+          label: 'Pedidos hoy',
+          value: '$totalOrders',
+          color: AppColors.primary,
+          sublabel: 'Total del día',
+        ),
+        DashboardKpiCard(
+          icon: Icons.attach_money_rounded,
+          label: 'Ingresos',
+          value: '\$${ingresos.toStringAsFixed(0)}',
+          color: AppColors.warning,
+          sublabel: 'Total del día',
+        ),
+        DashboardKpiCard(
+          icon: Icons.pending_actions_rounded,
+          label: 'Pendientes',
+          value: '$pendientes',
+          color: AppColors.error,
+          sublabel: 'Por atender',
+        ),
+        DashboardKpiCard(
+          icon: Icons.local_fire_department_rounded,
+          label: 'En preparación',
+          value: '$preparando',
+          color: AppColors.success,
+          sublabel: 'En cocina',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecentOrders(List<Order> orders) {
+    return Column(
+      children: [
+        DashboardSectionHeader(
+          title: 'Pedidos recientes',
+          trailing: TextButton(
+            onPressed: () => _switchTab(1),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              padding: EdgeInsets.zero,
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              'Ver todos →',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
             ),
           ),
         ),
-        const SizedBox(height: 16),
-        ..._products.map((p) => _ProductAdminTile(product: p)),
+        const SizedBox(height: 10),
+        ...orders.take(4).map(
+              (o) => DashboardOrderTile(
+                order: o,
+                onStatusChange: (newStatus) => _updateOrderStatus(o.id, newStatus),
+              ),
+            ),
       ],
     );
+  }
+
+  Widget _buildTopProducts(List<Product> products, int maxSold) {
+    if (products.isEmpty) {
+      return const Center(child: Text('No hay productos'));
+    }
+
+    return Column(
+      children: [
+        DashboardSectionHeader(
+          title: 'Más vendidos',
+          trailing: const Text(
+            'unidades',
+            style: TextStyle(
+              color: AppColors.textGrey,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            children: products
+                .take(4)
+                .map(
+                  (p) => DashboardSalesBarRow(
+                    productName: p.name,
+                    sold: p.totalSold ?? 0,
+                    maxSold: maxSold,
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // TAB 1 — PEDIDOS
+  // ══════════════════════════════════════════════════════════════
+  Widget _buildPedidos() {
+    final filtros = ['Todos', 'Pendiente', 'Preparando', 'Listo', 'Entregado'];
+
+    return Consumer<OrderProvider>(
+      builder: (context, orderProvider, _) {
+        return StatefulBuilder(
+          builder: (context, setStatePedidos) {
+            String filtroActual = 'Todos';
+
+            final lista = filtroActual == 'Todos'
+                ? orderProvider.orders
+                : orderProvider.orders
+                    .where((o) => o.status == filtroActual.toLowerCase())
+                    .toList();
+
+            return RefreshIndicator(
+              onRefresh: _loadData,
+              child: Column(
+                children: [
+                  _buildFilterBar(filtros, filtroActual, setStatePedidos),
+                  _buildOrderCounter(lista.length),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                      children: lista
+                          .map(
+                            (o) => DashboardOrderTile(
+                              order: o,
+                              expanded: true,
+                              onStatusChange: (newStatus) =>
+                                  _updateOrderStatus(o.id, newStatus),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildFilterBar(
+    List<String> filtros,
+    String filtroActual,
+    StateSetter setStatePedidos,
+  ) {
+    return Container(
+      color: AppColors.card,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      child: SizedBox(
+        height: 34,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: filtros.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 6),
+          itemBuilder: (_, i) {
+            final active = filtroActual == filtros[i];
+            return GestureDetector(
+              onTap: () => setStatePedidos(() => filtroActual = filtros[i]),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                decoration: BoxDecoration(
+                  color: active ? AppColors.primary : AppColors.background,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: active
+                        ? AppColors.primary
+                        : AppColors.textGrey.withOpacity(0.2),
+                  ),
+                  boxShadow: active
+                      ? [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.25),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Center(
+                  child: Text(
+                    filtros[i],
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: active ? Colors.white : AppColors.textGrey,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderCounter(int count) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
+        children: [
+          Text(
+            '$count pedidos',
+            style: const TextStyle(
+              color: AppColors.textGrey,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateOrderStatus(int? orderId, String newStatus) async {
+    if (orderId == null) return;
+    await context.read<OrderProvider>().updateOrderStatus(orderId, newStatus);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Pedido actualizado a ${_getStatusLabel(newStatus)}'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  String _getStatusLabel(String status) {
+    const labels = {
+      'pendiente': 'Pendiente',
+      'preparando': 'Preparando',
+      'listo': 'Listo',
+      'entregado': 'Entregado',
+    };
+    return labels[status] ?? status;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // TAB 2 — PRODUCTOS
+  // ══════════════════════════════════════════════════════════════
+  Widget _buildProductos() {
+    return Consumer<ProductProvider>(
+      builder: (context, productProvider, _) {
+        final products = productProvider.products;
+        final totalSold = products.fold<int>(0, (s, p) => s + (p.totalSold ?? 0));
+
+        return RefreshIndicator(
+          onRefresh: _loadData,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+            children: [
+              Row(
+                children: [
+                  DashboardMiniStat(
+                    label: 'Productos',
+                    value: '${products.length}',
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 10),
+                  DashboardMiniStat(
+                    label: 'Total vendidos',
+                    value: '$totalSold',
+                    color: AppColors.success,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildAddProductButton(),
+              const SizedBox(height: 20),
+              const DashboardSectionHeader(title: 'Catálogo actual'),
+              const SizedBox(height: 10),
+              if (productProvider.isLoading)
+                const Center(child: CircularProgressIndicator())
+              else if (products.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Text('No hay productos'),
+                  ),
+                )
+              else
+                ...products.map(
+                  (p) => DashboardProductAdminTile(
+                    product: p,
+                    onEdit: () => _openForm(product: p),
+                    onDelete: () => _confirmDelete(context, p),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAddProductButton() {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary,
+            AppColors.primary.withOpacity(0.80),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => _openForm(),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add_rounded, color: Colors.white, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Agregar producto',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────
+  Future<void> _openForm({Product? product}) async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AdminProductForm(product: product),
+      ),
+    );
+    if (result == true && mounted) {
+      await _loadData();
+      setState(() {});
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext ctx, Product product) async {
+    final confirmed = await showDialog<bool>(
+      context: ctx,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          '¿Eliminar producto?',
+          style: TextStyle(
+            color: AppColors.textDark,
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
+          ),
+        ),
+        content: Text(
+          'Se eliminará "${product.name}" permanentemente.',
+          style: const TextStyle(color: AppColors.textGrey, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: const Text('Cancelar', style: TextStyle(color: AppColors.textGrey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
+            ),
+            child: const Text('Eliminar', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final ok = await context.read<ProductProvider>().deleteProduct(product.id);
+      if (mounted && ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"${product.name}" eliminado'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+        await _loadData();
+      }
+    }
   }
 
   String _today() {
     const meses = [
       '', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
     ];
     final now = DateTime.now();
     return '${now.day} de ${meses[now.month]} de ${now.year}';
   }
-}
-
-// ════════════════════════════════════════════════════════════════════
-// MODELOS locales de ejemplo
-// ════════════════════════════════════════════════════════════════════
-class _Order {
-  final String       id;
-  final String       cliente;
-  final List<String> items;
-  final double       total;
-  String             status;
-  _Order(this.id, this.cliente, this.items, this.total, this.status);
-}
-
-class _Product {
-  final String name;
-  final String category;
-  final double price;
-  final int    sold;
-  _Product(this.name, this.category, this.price, this.sold);
-}
-
-// ════════════════════════════════════════════════════════════════════
-// WIDGETS AUXILIARES
-// ════════════════════════════════════════════════════════════════════
-
-// ── Título de sección ──────────────────────────────────────────────
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Text(text,
-      style: const TextStyle(
-          color: AppColors.textDark,
-          fontSize: 13,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.3));
-}
-
-// ── KPI Card ──────────────────────────────────────────────────────
-class _KpiCard extends StatelessWidget {
-  const _KpiCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-  final IconData icon;
-  final String   label;
-  final String   value;
-  final Color    color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 16),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value,
-                  style: TextStyle(
-                      color: color,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      height: 1)),
-              const SizedBox(height: 2),
-              Text(label,
-                  style: const TextStyle(
-                      color: AppColors.textGrey,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Order Tile ────────────────────────────────────────────────────
-class _OrderTile extends StatelessWidget {
-  const _OrderTile({
-    required this.order,
-    required this.onStatusChange,
-    this.expanded = false,
-  });
-  final _Order  order;
-  final bool    expanded;
-  final void Function(String) onStatusChange;
-
-  @override
-  Widget build(BuildContext context) {
-    final statusColors = {
-      'pendiente':  AppColors.pending,
-      'preparando': AppColors.preparing,
-      'listo':      AppColors.ready,
-      'entregado':  AppColors.delivered,
-    };
-    final color = statusColors[order.status] ?? AppColors.textGrey;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            // Número
-            Text('#${order.id}',
-                style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(order.cliente,
-                  style: const TextStyle(
-                      color: AppColors.textDark,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600)),
-            ),
-            // Total
-            Text('\$${order.total.toStringAsFixed(2)}',
-                style: const TextStyle(
-                    color: AppColors.warning,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700)),
-          ]),
-          const SizedBox(height: 6),
-          // Items
-          Text(order.items.join(' · '),
-              style: const TextStyle(
-                  color: AppColors.textGrey, fontSize: 11)),
-          const SizedBox(height: 10),
-          Row(children: [
-            // Badge status
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: color.withOpacity(0.4)),
-              ),
-              child: Text(
-                order.status[0].toUpperCase() +
-                    order.status.substring(1),
-                style: TextStyle(
-                    color: color,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700),
-              ),
-            ),
-            const Spacer(),
-            // Acción rápida
-            if (order.status != 'entregado')
-              GestureDetector(
-                onTap: () {
-                  const next = {
-                    'pendiente':  'preparando',
-                    'preparando': 'listo',
-                    'listo':      'entregado',
-                  };
-                  onStatusChange(next[order.status] ?? order.status);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: AppColors.primary.withOpacity(0.4)),
-                  ),
-                  child: const Text('Actualizar estado',
-                      style: TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700)),
-                ),
-              ),
-          ]),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Mini tile productos (resumen) ─────────────────────────────────
-class _ProductMiniTile extends StatelessWidget {
-  const _ProductMiniTile({required this.product});
-  final _Product product;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(children: [
-        Icon(Icons.coffee_rounded, color: AppColors.primary, size: 16),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(product.name,
-              style: const TextStyle(
-                  color: AppColors.textDark,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600)),
-        ),
-        Text('${product.sold} vendidos',
-            style: const TextStyle(
-                color: AppColors.textGrey, fontSize: 11)),
-      ]),
-    );
-  }
-}
-
-// ── Producto admin tile ───────────────────────────────────────────
-class _ProductAdminTile extends StatelessWidget {
-  const _ProductAdminTile({required this.product});
-  final _Product product;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(children: [
-        // Icono
-        Container(
-          width: 42, height: 42,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(Icons.coffee_rounded,
-              color: AppColors.primary, size: 20),
-        ),
-        const SizedBox(width: 12),
-        // Info
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(product.name,
-                  style: const TextStyle(
-                      color: AppColors.textDark,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700)),
-              const SizedBox(height: 3),
-              Row(children: [
-                _Tag(product.category),
-                const SizedBox(width: 6),
-                Text('${product.sold} vendidos',
-                    style: const TextStyle(
-                        color: AppColors.textGrey, fontSize: 10)),
-              ]),
-            ],
-          ),
-        ),
-        // Precio + acciones
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text('\$${product.price.toStringAsFixed(0)}',
-                style: const TextStyle(
-                    color: AppColors.warning,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800)),
-            const SizedBox(height: 6),
-            Row(children: [
-              _IconBtn(Icons.edit_rounded,    AppColors.textGrey, () {}),
-              const SizedBox(width: 4),
-              _IconBtn(Icons.delete_rounded,  AppColors.error,   () {}),
-            ]),
-          ],
-        ),
-      ]),
-    );
-  }
-}
-
-class _Tag extends StatelessWidget {
-  const _Tag(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-        decoration: BoxDecoration(
-          color: AppColors.textGrey.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(text,
-            style: const TextStyle(
-                color: AppColors.textGrey,
-                fontSize: 9,
-                fontWeight: FontWeight.w600)),
-      );
-}
-
-class _IconBtn extends StatelessWidget {
-  const _IconBtn(this.icon, this.color, this.onTap);
-  final IconData icon;
-  final Color    color;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(5),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(icon, color: color, size: 13),
-        ),
-      );
 }

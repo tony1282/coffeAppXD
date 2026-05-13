@@ -1,3 +1,5 @@
+// lib/main.dart
+
 import 'package:coffe_app/screens/auth/register_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -9,6 +11,9 @@ import 'screens/auth/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/admin/admin_dashboard.dart';
 import 'providers/auth_provider.dart';
+import 'providers/order_provider.dart';
+import 'providers/product_provider.dart';
+import 'providers/cart_provider.dart';  // ← AGREGAR
 import 'config/constants.dart';
 
 void main() async {
@@ -27,6 +32,9 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => OrderProvider()),
+        ChangeNotifierProvider(create: (_) => ProductProvider()),
+        ChangeNotifierProvider(create: (_) => CartProvider()),  // ← AGREGAR
       ],
       child: MaterialApp(
         title: 'Coffee Shop',

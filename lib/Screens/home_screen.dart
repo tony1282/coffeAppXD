@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/constants.dart';
 import '../../models/product_model.dart';
 import '../../providers/cart_provider.dart';
+import '../../providers/product_provider.dart';
 import '../../screens/orders/cart_screen.dart';
 import '../../screens/orders/order_history_screen.dart';
 import '../../screens/products/product_detail_screen.dart';
@@ -23,94 +25,36 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedNav = 0;
   String _selectedCategory = 'Todo';
-  final CartProvider _cart = CartProvider();
 
+  // ── Categorías estáticas (puedes obtenerlas dinámicamente después) ──
   final List<String> _categories = ['Todo', 'Café frío', 'Caliente', 'Galletas'];
 
-  final List<Product> _products = [
-    Product(
-      id: '1',
-      name: 'Americano Clásico',
-      price: 5.50,
-      imageUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400',
-      description: 'Caliente',
-      category: 'Caliente',
-    ),
-    Product(
-      id: '2',
-      name: 'Espresso Doble',
-      price: 3.50,
-      imageUrl: 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=400',
-      description: 'Intenso y concentrado',
-      category: 'Caliente',
-    ),
-    Product(
-      id: '3',
-      name: 'Capuchino',
-      price: 6.00,
-      imageUrl: 'https://images.unsplash.com/photo-1534778101976-62847782c213?w=400',
-      description: 'Con espuma de leche',
-      category: 'Caliente',
-    ),
-    Product(
-      id: '4',
-      name: 'Frappé de Caramelo',
-      price: 7.50,
-      imageUrl: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400',
-      description: 'Refrescante y dulce',
-      category: 'Café frío',
-    ),
-    Product(
-      id: '5',
-      name: 'Cold Brew',
-      price: 6.50,
-      imageUrl: 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?w=400',
-      description: 'Suave y sin acidez',
-      category: 'Café frío',
-    ),
-    Product(
-      id: '6',
-      name: 'Galleta de Avena',
-      price: 2.50,
-      imageUrl: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=400',
-      description: 'Recién horneada',
-      category: 'Galletas',
-    ),
-    Product(
-      id: '7',
-      name: 'Chocolate Chip Cookie',
-      price: 2.75,
-      imageUrl: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400',
-      description: 'Con chips de chocolate',
-      category: 'Galletas',
-    ),
-    Product(
-      id: '8',
-      name: 'Latte Helado',
-      price: 6.00,
-      imageUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400',
-      description: 'Suave con hielo',
-      category: 'Café frío',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    // Cargar productos al iniciar
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ProductProvider>().fetchProducts();
+    });
+  }
 
-  List<Product> get _filteredProducts {
-    if (_selectedCategory == 'Todo') return _products;
-    return _products
+  List<Product> _getFilteredProducts(List<Product> products) {
+    if (_selectedCategory == 'Todo') return products;
+    return products
         .where((p) => p.category == _selectedCategory)
         .toList();
   }
 
   // ── Navegación ────────────────────────────────────────────────────────────
 
-  void _goToProduct(Product product) {
+  void _goToProduct(Product product, CartProvider cartProvider) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ProductDetailScreen(
           product: product,
           onAddToCart: () {
-            _cart.add(product);
+            cartProvider.add(product);
             setState(() {});
           },
         ),
@@ -123,9 +67,10 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => CartScreen(
-          cartItems: _cart.items.toList(),
+          cartItems: context.read<CartProvider>().items.toList(),
           onOrderPlaced: () {
-            setState(() => _cart.clear());
+            context.read<CartProvider>().clear();
+            setState(() {});
           },
         ),
       ),
@@ -146,22 +91,22 @@ class _HomeScreenState extends State<HomeScreen> {
     ).then((_) => setState(() => _selectedNav = 0));
   }
 
-  void _openSearch() {
+  void _openSearch(List<Product> products, CartProvider cartProvider) {
     showSearch(
       context: context,
       delegate: ProductSearchDelegate(
-        products: _products,
+        products: products,
         onAddToCart: (p) {
-          _cart.add(p);
+          cartProvider.add(p);
           setState(() {});
         },
-        onTap: _goToProduct,
+        onTap: (p) => _goToProduct(p, cartProvider),
       ),
     );
   }
 
-  void _addToCart(Product p) {
-    _cart.add(p);
+  void _addToCart(CartProvider cartProvider, Product p) {
+    cartProvider.add(p);
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -174,60 +119,116 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ── Ícono del carrito con badge ──
+  Widget _buildCartIcon(CartProvider cartProvider) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.shopping_cart_rounded),
+          onPressed: _goToCart,
+          color: AppColors.textDark,
+        ),
+        if (cartProvider.itemCount > 0)
+          Positioned(
+            right: 4,
+            top: 4,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 16,
+              ),
+              child: Text(
+                '${cartProvider.itemCount}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Header ──
-            HomeHeader(onSearchTap: _openSearch),
+    return Consumer2<ProductProvider, CartProvider>(
+      builder: (context, productProvider, cartProvider, _) {
+        final products = productProvider.products;
+        final isLoading = productProvider.isLoading;
+        final filteredProducts = _getFilteredProducts(products);
 
-            const SizedBox(height: 12),
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: SafeArea(
+            child: Column(
+              children: [
+                // ── Header con carrito ──
+                HomeHeader(
+                  onSearchTap: () => _openSearch(products, cartProvider),
+                  actions: _buildCartIcon(cartProvider),  // ← AGREGADO
+                ),
 
-            // ── Categorías ──
-            CategoryChips(
-              categories: _categories,
-              selected: _selectedCategory,
-              onSelect: (cat) => setState(() => _selectedCategory = cat),
+                const SizedBox(height: 12),
+
+                // ── Categorías ──
+                CategoryChips(
+                  categories: _categories,
+                  selected: _selectedCategory,
+                  onSelect: (cat) => setState(() => _selectedCategory = cat),
+                ),
+
+                const SizedBox(height: 10),
+
+                // ── Grid de productos ──
+                Expanded(
+                  child: isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : products.isEmpty
+                          ? const Center(
+                              child: Text('No hay productos disponibles'),
+                            )
+                          : ProductGrid(
+                              products: filteredProducts,
+                              onTap: (p) => _goToProduct(p, cartProvider),
+                              onAdd: (p) => _addToCart(cartProvider, p),
+                            ),
+                ),
+
+                // ── Barra del carrito (opcional, puedes mantenerla) ──
+                if (cartProvider.isNotEmpty)
+                  CartBar(
+                    itemCount: cartProvider.itemCount,
+                    total: cartProvider.total,
+                    onTap: _goToCart,
+                  ),
+
+                // ── NavBar ──
+                HomeNavBar(
+                  selected: _selectedNav,
+                  onMenu: () => setState(() => _selectedNav = 0),
+                  onOrders: () {
+                    setState(() => _selectedNav = 1);
+                    _goToOrderHistory();
+                  },
+                  onProfile: () {
+                    setState(() => _selectedNav = 2);
+                    _goToProfile();
+                  },
+                ),
+              ],
             ),
-
-            const SizedBox(height: 10),
-
-            // ── Grid de productos ──
-            Expanded(
-              child: ProductGrid(
-                products: _filteredProducts,
-                onTap: _goToProduct,
-                onAdd: _addToCart,
-              ),
-            ),
-
-            // ── Barra del carrito ──
-            if (_cart.isNotEmpty)
-              CartBar(
-                itemCount: _cart.itemCount,
-                total: _cart.total,
-                onTap: _goToCart,
-              ),
-
-            // ── NavBar ──
-            HomeNavBar(
-              selected: _selectedNav,
-              onMenu: () => setState(() => _selectedNav = 0),
-              onOrders: () {
-                setState(() => _selectedNav = 1);
-                _goToOrderHistory();
-              },
-              onProfile: () {
-                setState(() => _selectedNav = 2);
-                _goToProfile();
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
