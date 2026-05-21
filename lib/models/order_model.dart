@@ -48,6 +48,23 @@ class Order {
     );
   }
 
+  Order copyWith({String? status}) {
+    return Order(
+      id: id,
+      userId: userId,
+      items: items,
+      total: total,
+      status: status ?? this.status,
+      paymentMethod: paymentMethod,
+      paymentStatus: paymentStatus,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      deliveryAddress: deliveryAddress,
+      deliveryLat: deliveryLat,
+      deliveryLng: deliveryLng,
+    );
+  }
+
   String get statusText {
     switch (status) {
       case 'pending': return 'Pendiente';

@@ -1,3 +1,5 @@
+// lib/screens/admin/admin_dashboard.dart
+
 import 'package:coffe_app/widgets/admin/dashboard_kpi_card.dart';
 import 'package:coffe_app/widgets/admin/dashboard_mini_stat.dart';
 import 'package:coffe_app/widgets/admin/dashboard_order_tile.dart';
@@ -16,7 +18,6 @@ import '../../models/order_model.dart';
 import '../../models/product_model.dart';
 import 'products/admin_product_form.dart';
 
-
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
 
@@ -30,6 +31,15 @@ class _AdminDashboardState extends State<AdminDashboard>
   late final AnimationController _fadeCtrl;
   late final Animation<double> _fadeAnim;
 
+  // ✅ Filtro persistente para pedidos (no se reinicia al cambiar de tab)
+  String _filtroPedidos = 'Todos';
+
+  // ✅ Prevenir spam de actualizaciones
+  final Set<int> _updatingOrders = {};
+
+  // ✅ Prevenir doble eliminación
+  bool _isDeleting = false;
+
   @override
   void initState() {
     super.initState();
@@ -40,7 +50,6 @@ class _AdminDashboardState extends State<AdminDashboard>
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _fadeCtrl.forward();
 
-    // Cargar datos al iniciar
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
@@ -68,6 +77,19 @@ class _AdminDashboardState extends State<AdminDashboard>
       setState(() => _tab = i);
       _fadeCtrl.forward();
     });
+  }
+
+  void _showErrorSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override
@@ -313,58 +335,48 @@ class _AdminDashboardState extends State<AdminDashboard>
   }
 
   // ══════════════════════════════════════════════════════════════
-  // TAB 1 — PEDIDOS
+  // TAB 1 — PEDIDOS (con filtro persistente)
   // ══════════════════════════════════════════════════════════════
   Widget _buildPedidos() {
     final filtros = ['Todos', 'Pendiente', 'Preparando', 'Listo', 'Entregado'];
 
     return Consumer<OrderProvider>(
       builder: (context, orderProvider, _) {
-        return StatefulBuilder(
-          builder: (context, setStatePedidos) {
-            String filtroActual = 'Todos';
+        final lista = _filtroPedidos == 'Todos'
+            ? orderProvider.orders
+            : orderProvider.orders
+                .where((o) => o.status == _filtroPedidos.toLowerCase())
+                .toList();
 
-            final lista = filtroActual == 'Todos'
-                ? orderProvider.orders
-                : orderProvider.orders
-                    .where((o) => o.status == filtroActual.toLowerCase())
-                    .toList();
-
-            return RefreshIndicator(
-              onRefresh: _loadData,
-              child: Column(
-                children: [
-                  _buildFilterBar(filtros, filtroActual, setStatePedidos),
-                  _buildOrderCounter(lista.length),
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                      children: lista
-                          .map(
-                            (o) => DashboardOrderTile(
-                              order: o,
-                              expanded: true,
-                              onStatusChange: (newStatus) =>
-                                  _updateOrderStatus(o.id, newStatus),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                ],
+        return RefreshIndicator(
+          onRefresh: _loadData,
+          child: Column(
+            children: [
+              _buildFilterBar(filtros),
+              _buildOrderCounter(lista.length),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  children: lista
+                      .map(
+                        (o) => DashboardOrderTile(
+                          order: o,
+                          expanded: true,
+                          onStatusChange: (newStatus) =>
+                              _updateOrderStatus(o.id, newStatus),
+                        ),
+                      )
+                      .toList(),
+                ),
               ),
-            );
-          },
+            ],
+          ),
         );
       },
     );
   }
 
-  Widget _buildFilterBar(
-    List<String> filtros,
-    String filtroActual,
-    StateSetter setStatePedidos,
-  ) {
+  Widget _buildFilterBar(List<String> filtros) {
     return Container(
       color: AppColors.card,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
@@ -375,9 +387,9 @@ class _AdminDashboardState extends State<AdminDashboard>
           itemCount: filtros.length,
           separatorBuilder: (_, __) => const SizedBox(width: 6),
           itemBuilder: (_, i) {
-            final active = filtroActual == filtros[i];
+            final active = _filtroPedidos == filtros[i];
             return GestureDetector(
-              onTap: () => setStatePedidos(() => filtroActual = filtros[i]),
+              onTap: () => setState(() => _filtroPedidos = filtros[i]),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
@@ -436,17 +448,32 @@ class _AdminDashboardState extends State<AdminDashboard>
   }
 
   Future<void> _updateOrderStatus(int? orderId, String newStatus) async {
+    // ✅ Prevenir spam y actualizaciones duplicadas
     if (orderId == null) return;
-    await context.read<OrderProvider>().updateOrderStatus(orderId, newStatus);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Pedido actualizado a ${_getStatusLabel(newStatus)}'),
-          backgroundColor: AppColors.success,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+    if (_updatingOrders.contains(orderId)) return;
+
+    _updatingOrders.add(orderId);
+
+    try {
+      await context.read<OrderProvider>().updateOrderStatus(orderId, newStatus);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Pedido actualizado a ${_getStatusLabel(newStatus)}'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnack('Error al actualizar el estado');
+      }
+    } finally {
+      if (mounted) {
+        _updatingOrders.remove(orderId);
+      }
     }
   }
 
@@ -571,11 +598,14 @@ class _AdminDashboardState extends State<AdminDashboard>
     );
     if (result == true && mounted) {
       await _loadData();
-      setState(() {});
+      if (mounted) setState(() {});
     }
   }
 
   Future<void> _confirmDelete(BuildContext ctx, Product product) async {
+    // ✅ Prevenir doble eliminación
+    if (_isDeleting) return;
+
     final confirmed = await showDialog<bool>(
       context: ctx,
       builder: (dialogCtx) => AlertDialog(
@@ -613,18 +643,32 @@ class _AdminDashboardState extends State<AdminDashboard>
     );
 
     if (confirmed == true && mounted) {
-      final ok = await context.read<ProductProvider>().deleteProduct(product.id);
-      if (mounted && ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('"${product.name}" eliminado'),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            margin: const EdgeInsets.all(16),
-          ),
-        );
-        await _loadData();
+      setState(() => _isDeleting = true);
+
+      try {
+        final ok = await context.read<ProductProvider>().deleteProduct(product.id);
+        if (mounted && ok) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('"${product.name}" eliminado'),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              margin: const EdgeInsets.all(16),
+            ),
+          );
+          await _loadData();
+        } else if (mounted) {
+          _showErrorSnack('Error al eliminar el producto');
+        }
+      } catch (e) {
+        if (mounted) {
+          _showErrorSnack('Error al eliminar el producto');
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isDeleting = false);
+        }
       }
     }
   }

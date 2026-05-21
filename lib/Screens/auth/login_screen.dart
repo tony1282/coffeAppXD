@@ -1,3 +1,5 @@
+// lib/screens/auth/login_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
@@ -11,15 +13,121 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final emailCtrl = TextEditingController();
-  final passCtrl  = TextEditingController();
+  final passCtrl = TextEditingController();
   bool _showPassword = false;
 
-  static const Color primary    = Color(0xFF3B5EFF);
+  static const Color primary = Color(0xFF3B5EFF);
   static const Color background = Color(0xFFFFFBF8);
-  static const Color textDark   = Color(0xFF1A1A1A);
-  static const Color textGrey   = Color(0xFF8A8A8A);
+  static const Color textDark = Color(0xFF1A1A1A);
+  static const Color textGrey = Color(0xFF8A8A8A);
 
-  // Redirige a /admin o /home según el rol cargado en el provider
+  // ✅ Mostrar diálogo para pedir teléfono después de Google Login
+  Future<void> _showPhoneDialog(AuthProvider auth) async {
+    final phoneCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Completa tu perfil',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Para continuar, necesitamos tu número de teléfono:'),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  labelText: 'Teléfono',
+                  hintText: 'Ej: +52 123 456 7890',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'El teléfono es obligatorio';
+                  }
+                  final phoneRegex = RegExp(r'^[0-9+\-\s()]+$');
+                  if (!phoneRegex.hasMatch(value.trim())) {
+                    return 'Teléfono inválido';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(ctx, true);
+                // Guardar teléfono
+                await auth.updateUserProfile(phone: phoneCtrl.text.trim());
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: primary),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  // ✅ Redirige y verifica si necesita teléfono
+  Future<void> _handleGoogleSignIn(AuthProvider auth) async {
+    try {
+      final user = await auth.signInWithGoogle();
+      
+      if (user != null && mounted) {
+        // ✅ Verificar si el usuario tiene teléfono
+        final userModel = auth.userModel;
+        
+        if (userModel?.phone == null || userModel!.phone!.isEmpty) {
+          await _showPhoneDialog(auth);
+        }
+        
+        // ✅ Recargar modelo después de guardar teléfono
+        await auth.loadUserModel();
+        
+        if (mounted) {
+          _redirect();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnack(e.toString());
+      }
+    }
+  }
+
   void _redirect() {
     if (!mounted) return;
     final isAdmin = context.read<AuthProvider>().isAdmin;
@@ -43,8 +151,8 @@ class _LoginScreenState extends State<LoginScreen> {
           child: ConstrainedBox(
             constraints: BoxConstraints(
               minHeight: MediaQuery.of(context).size.height -
-                         MediaQuery.of(context).padding.top -
-                         MediaQuery.of(context).padding.bottom,
+                  MediaQuery.of(context).padding.top -
+                  MediaQuery.of(context).padding.bottom,
             ),
             child: IntrinsicHeight(
               child: Column(
@@ -56,7 +164,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     children: [
                       Container(
-                        width: 48, height: 48,
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
                           color: primary,
                           borderRadius: BorderRadius.circular(14),
@@ -137,9 +246,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 _redirect();
                               } catch (e) {
                                 if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(e.toString())),
-                                );
+                                _showErrorSnack(e.toString());
                               }
                             },
                       style: ElevatedButton.styleFrom(
@@ -159,7 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const Row(children: [
                     Expanded(child: Divider()),
-                    Padding(
+                    const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 10),
                       child: Text('o'),
                     ),
@@ -175,17 +282,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: OutlinedButton(
                       onPressed: auth.isLoading
                           ? null
-                          : () async {
-                              try {
-                                await auth.signInWithGoogle();
-                                _redirect();
-                              } catch (e) {
-                                if (!mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(e.toString())),
-                                );
-                              }
-                            },
+                          : () => _handleGoogleSignIn(auth),
                       style: OutlinedButton.styleFrom(
                         backgroundColor: Colors.white,
                         shape: RoundedRectangleBorder(

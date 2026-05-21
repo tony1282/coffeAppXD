@@ -24,6 +24,12 @@ class CartScreen extends StatefulWidget {
 class _CartScreenState extends State<CartScreen> {
   late List<CartItem> _items;
   bool _isProcessing = false;
+  bool _isConfirming = false;
+
+  // ✅ Límites de cantidad
+  static const int _minQuantity = 1;
+  static const int _maxQuantityPerProduct = 99;
+  static const int _maxTotalItems = 50;
 
   @override
   void initState() {
@@ -33,45 +39,131 @@ class _CartScreenState extends State<CartScreen> {
 
   double get _total => _items.fold(0.0, (sum, item) => sum + item.subtotal);
 
-  void _removeItem(int index) => setState(() => _items.removeAt(index));
+  void _removeItem(int index) {
+    if (!mounted) return;
+    setState(() => _items.removeAt(index));
+  }
 
   void _updateQuantity(int index, int newQuantity) {
+    if (!mounted) return;
+    
     setState(() {
-      if (newQuantity <= 0) {
+      if (newQuantity < _minQuantity) {
         _items.removeAt(index);
+      } else if (newQuantity > _maxQuantityPerProduct) {
+        _items[index].quantity = _maxQuantityPerProduct;
       } else {
         _items[index].quantity = newQuantity;
       }
     });
   }
 
+  void _showErrorSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showSuccessSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // ✅ Validación de stock antes de pagar
+  bool _validateStock() {
+    for (final item in _items) {
+      final product = item.product;
+      if (product.stock != null && item.quantity > product.stock!) {
+        _showErrorSnack('${product.name} solo tiene ${product.stock} unidades disponibles');
+        return false;
+      }
+      if (!product.available) {
+        _showErrorSnack('${product.name} ya no está disponible');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<bool> _showConfirmDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Confirmar pedido',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        content: Text(
+          'Total a pagar: \$${_total.toStringAsFixed(2)}\n\n¿Confirmas este pedido?',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
   Future<void> _placeOrder(String paymentMethod) async {
+    // ✅ Prevenir spam
+    if (_isProcessing || _isConfirming) return;
+
     if (_items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tu carrito está vacío')),
-      );
+      _showErrorSnack('Tu carrito está vacío');
       return;
     }
 
+    // ✅ Validar stock antes de continuar
+    if (!_validateStock()) return;
+
+    // ✅ Confirmar antes de pagar
+    final confirmed = await _showConfirmDialog();
+    if (!confirmed) return;
+
     setState(() => _isProcessing = true);
 
+    String? createdOrderId;
+    
     try {
       final userId = context.read<AuthProvider>().userModel?.userId;
       
-      // Construir datos del pedido
       final orderData = {
         'user_id': userId,
         'items': _items.map((item) => {
           'product_id': item.product.id,
-          'product_name': item.product.name,
           'quantity': item.quantity,
-          'price': item.product.price,
         }).toList(),
-        'total': _total,
         'payment_method': paymentMethod,
-        'payment_status': paymentMethod == 'Efectivo' ? 'pending' : 'paid',
-        'status': 'pending',
-        'delivery_address': 'Calle Principal 123', // TODO: obtener dirección real
+        'delivery_address': 'Calle Principal 123',
       };
 
       final orderProvider = context.read<OrderProvider>();
@@ -79,37 +171,33 @@ class _CartScreenState extends State<CartScreen> {
 
       if (!mounted) return;
 
-      if (success) {
-        // Limpiar carrito
+      if (success && orderProvider.orders.isNotEmpty) {
+        createdOrderId = orderProvider.orders.first.id.toString();
+        
         widget.onOrderPlaced();
         
-        // Mostrar confirmación
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Pedido #${orderProvider.orders.first.id} confirmado · Pago: $paymentMethod'),
-            backgroundColor: AppColors.success,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        _showSuccessSnack('Pedido #$createdOrderId confirmado · Pago: $paymentMethod');
         
-        // Cerrar todas las pantallas hasta Home
-        Navigator.popUntil(context, (r) => r.isFirst);
+        if (mounted) {
+          Navigator.popUntil(context, (r) => r.isFirst);
+        }
       } else {
         throw Exception(orderProvider.errorMsg ?? 'Error al crear pedido');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      if (mounted) {
+        _showErrorSnack('Error al procesar el pedido. Intenta de nuevo.');
+      }
     } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
     }
   }
 
   void _showPaymentSheet() {
+    if (_isProcessing) return;
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -185,7 +273,13 @@ class _CartScreenState extends State<CartScreen> {
                                       Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.w500)),
                                       IconButton(
                                         icon: const Icon(Icons.add, size: 18),
-                                        onPressed: () => _updateQuantity(index, item.quantity + 1),
+                                        onPressed: () {
+                                          if (item.quantity < _maxQuantityPerProduct) {
+                                            _updateQuantity(index, item.quantity + 1);
+                                          } else {
+                                            _showErrorSnack('Máximo $_maxQuantityPerProduct unidades por producto');
+                                          }
+                                        },
                                         constraints: const BoxConstraints(),
                                         padding: EdgeInsets.zero,
                                       ),

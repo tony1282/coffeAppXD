@@ -1,3 +1,5 @@
+// lib/screens/admin/products/admin_product_form.dart
+
 import 'package:coffe_app/widgets/products/form/product_section_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,7 +19,6 @@ import 'package:coffe_app/widgets/products/form/product_delete_button.dart';
 import 'package:coffe_app/widgets/products/form/product_form_card.dart';
 import 'package:coffe_app/widgets/products/form/product_form_header.dart';
 
-
 class AdminProductForm extends StatefulWidget {
   const AdminProductForm({super.key, this.product});
 
@@ -29,6 +30,7 @@ class AdminProductForm extends StatefulWidget {
 
 class _AdminProductFormState extends State<AdminProductForm> {
   final _formKey = GlobalKey<FormState>();
+  bool _isSubmitting = false; // ✅ Previene múltiples envíos
 
   late final TextEditingController _nameCtrl;
   late final TextEditingController _descCtrl;
@@ -39,9 +41,24 @@ class _AdminProductFormState extends State<AdminProductForm> {
   late String _category;
   late bool _available;
   bool _hasStock = false;
-  bool _submitting = false;
 
   bool get _isEditing => widget.product != null;
+
+  // ✅ Validación de precio segura
+  double? _parsePrice(String text) {
+    if (text.trim().isEmpty) return null;
+    final normalized = text.replaceAll(',', '.');
+    return double.tryParse(normalized);
+  }
+
+  // ✅ Validación de stock segura
+  int? _parseStock(String text) {
+    if (text.trim().isEmpty) return null;
+    final parsed = int.tryParse(text.trim());
+    if (parsed == null || parsed < 0) return null;
+    if (parsed > 999999) return 999999; // Límite razonable
+    return parsed;
+  }
 
   @override
   void initState() {
@@ -72,50 +89,98 @@ class _AdminProductFormState extends State<AdminProductForm> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    FocusScope.of(context).unfocus();
+    // ✅ Prevenir spam de envíos
+    if (_isSubmitting) return;
 
-    setState(() => _submitting = true);
+    // ✅ Validar formulario
+    if (!_formKey.currentState!.validate()) return;
+
+    // ✅ Validar que el nombre no esté vacío después de trim
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      _showErrorSnack('El nombre del producto es requerido');
+      return;
+    }
+
+    // ✅ Validar precio parseable
+    final price = _parsePrice(_priceCtrl.text);
+    if (price == null) {
+      _showErrorSnack('Precio inválido');
+      return;
+    }
+    if (price <= 0) {
+      _showErrorSnack('El precio debe ser mayor a 0');
+      return;
+    }
+    if (price > 999999) {
+      _showErrorSnack('Precio demasiado alto');
+      return;
+    }
+
+    // ✅ Validar stock si está habilitado
+    int? stock;
+    if (_hasStock) {
+      stock = _parseStock(_stockCtrl.text);
+      if (stock == null) {
+        _showErrorSnack('Stock inválido');
+        return;
+      }
+    }
+
+    // ✅ Validar que la imagen no esté vacía (opcional, pero recomendado)
+    final imageUrl = _imageCtrl.text.trim();
+    if (imageUrl.isEmpty) {
+      _showErrorSnack('La URL de la imagen es requerida');
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    setState(() => _isSubmitting = true);
 
     final provider = context.read<ProductProvider>();
     final bool ok;
 
-    if (_isEditing) {
-      ok = await provider.updateProduct(
-        id: widget.product!.id,
-        name: _nameCtrl.text.trim(),
-        description: _descCtrl.text.trim(),
-        price: double.parse(_priceCtrl.text),
-        category: _category,
-        imageUrl: _imageCtrl.text.trim(),
-        available: _available,
-        stock: _hasStock && _stockCtrl.text.isNotEmpty
-            ? int.tryParse(_stockCtrl.text)
-            : null,
-      );
-    } else {
-      ok = await provider.createProduct(
-        name: _nameCtrl.text.trim(),
-        description: _descCtrl.text.trim(),
-        price: double.parse(_priceCtrl.text),
-        category: _category,
-        imageUrl: _imageCtrl.text.trim(),
-        available: _available,
-        stock: _hasStock && _stockCtrl.text.isNotEmpty
-            ? int.tryParse(_stockCtrl.text)
-            : null,
-      );
+    try {
+      if (_isEditing) {
+        ok = await provider.updateProduct(
+          id: widget.product!.id,
+          name: name,
+          description: _descCtrl.text.trim(),
+          price: price,
+          category: _category,
+          imageUrl: imageUrl,
+          available: _available,
+          stock: stock,
+        );
+      } else {
+        ok = await provider.createProduct(
+          name: name,
+          description: _descCtrl.text.trim(),
+          price: price,
+          category: _category,
+          imageUrl: imageUrl,
+          available: _available,
+          stock: stock,
+        );
+      }
+    } catch (e) {
+      // ✅ Error inesperado
+      if (mounted) {
+        _showErrorSnack('Error inesperado: Intenta de nuevo');
+      }
+      setState(() => _isSubmitting = false);
+      return;
     }
 
-    setState(() => _submitting = false);
-
     if (!mounted) return;
+
+    setState(() => _isSubmitting = false);
 
     if (ok) {
       _showSuccessSnack();
       Navigator.of(context).pop(true);
     } else {
-      _showErrorSnack(provider.errorMsg ?? 'Error desconocido');
+      _showErrorSnack(provider.errorMsg ?? 'Error al guardar el producto');
     }
   }
 
@@ -218,8 +283,8 @@ class _AdminProductFormState extends State<AdminProductForm> {
                     const SizedBox(height: 32),
                     ProductSubmitButton(
                       isEditing: _isEditing,
-                      submitting: _submitting,
-                      onPressed: _submitting ? null : _submit,
+                      submitting: _isSubmitting,
+                      onPressed: _isSubmitting ? null : _submit,
                     ),
                     if (_isEditing) ...[
                       const SizedBox(height: 12),

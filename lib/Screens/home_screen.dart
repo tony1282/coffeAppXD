@@ -1,3 +1,5 @@
+// lib/screens/home_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/constants.dart';
@@ -25,6 +27,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedNav = 0;
   String _selectedCategory = 'Todo';
+  bool _isNavigating = false; // ✅ Prevenir navegación múltiple
 
   // ── Categorías estáticas (puedes obtenerlas dinámicamente después) ──
   final List<String> _categories = ['Todo', 'Café frío', 'Caliente', 'Galletas'];
@@ -32,37 +35,101 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Cargar productos al iniciar
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ProductProvider>().fetchProducts();
+      if (mounted) {
+        context.read<ProductProvider>().fetchProducts();
+      }
     });
   }
 
   List<Product> _getFilteredProducts(List<Product> products) {
     if (_selectedCategory == 'Todo') return products;
-    return products
-        .where((p) => p.category == _selectedCategory)
-        .toList();
+    return products.where((p) => p.category == _selectedCategory).toList();
   }
 
-  // ── Navegación ────────────────────────────────────────────────────────────
+  // ✅ Validar stock antes de agregar
+  bool _canAddToCart(Product product, CartProvider cartProvider) {
+    if (product.stock != null && product.stock! <= 0) {
+      _showErrorSnack('${product.name} no está disponible');
+      return false;
+    }
+    if (!product.available) {
+      _showErrorSnack('${product.name} no está disponible');
+      return false;
+    }
+    
+    // ✅ Verificar límite por producto en carrito
+    final existingIndex = cartProvider.items.indexWhere(
+      (item) => item.product.id == product.id,
+    );
+    final existingItem = existingIndex != -1 ? cartProvider.items[existingIndex] : null;
+    
+    if (existingItem != null && product.stock != null) {
+      if (existingItem.quantity + 1 > product.stock!) {
+        _showErrorSnack('Solo hay ${product.stock} unidades disponibles de ${product.name}');
+        return false;
+      }
+    }
+    
+    return true;
+  }
+
+  void _showErrorSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showSuccessSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   void _goToProduct(Product product, CartProvider cartProvider) {
+    if (_isNavigating) return;
+    _isNavigating = true;
+    
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ProductDetailScreen(
           product: product,
           onAddToCart: () {
-            cartProvider.add(product);
-            setState(() {});
+            if (_canAddToCart(product, cartProvider)) {
+              cartProvider.add(product);
+              if (mounted) {
+                _showSuccessSnack('${product.name} agregado al carrito');
+              }
+            }
           },
         ),
       ),
-    );
+    ).whenComplete(() {
+      if (mounted) {
+        _isNavigating = false;
+      }
+    });
   }
 
   void _goToCart() {
+    if (_isNavigating) return;
+    _isNavigating = true;
+    
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -70,35 +137,64 @@ class _HomeScreenState extends State<HomeScreen> {
           cartItems: context.read<CartProvider>().items.toList(),
           onOrderPlaced: () {
             context.read<CartProvider>().clear();
-            setState(() {});
+            if (mounted) {
+              setState(() {});
+            }
           },
         ),
       ),
-    );
+    ).whenComplete(() {
+      if (mounted) {
+        _isNavigating = false;
+      }
+    });
   }
 
   void _goToOrderHistory() {
+    if (_isNavigating) return;
+    _isNavigating = true;
+    
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const OrderHistoryScreen()),
-    ).then((_) => setState(() => _selectedNav = 0));
+    ).whenComplete(() {
+      if (mounted) {
+        setState(() => _selectedNav = 0);
+        _isNavigating = false;
+      }
+    });
   }
 
   void _goToProfile() {
+    if (_isNavigating) return;
+    _isNavigating = true;
+    
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const ProfileScreen()),
-    ).then((_) => setState(() => _selectedNav = 0));
+    ).whenComplete(() {
+      if (mounted) {
+        setState(() => _selectedNav = 0);
+        _isNavigating = false;
+      }
+    });
   }
 
   void _openSearch(List<Product> products, CartProvider cartProvider) {
+    if (_isNavigating) return;
+    
     showSearch(
       context: context,
       delegate: ProductSearchDelegate(
         products: products,
         onAddToCart: (p) {
-          cartProvider.add(p);
-          setState(() {});
+          if (_canAddToCart(p, cartProvider)) {
+            cartProvider.add(p);
+            if (mounted) {
+              _showSuccessSnack('${p.name} agregado');
+              setState(() {});
+            }
+          }
         },
         onTap: (p) => _goToProduct(p, cartProvider),
       ),
@@ -106,21 +202,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _addToCart(CartProvider cartProvider, Product p) {
+    if (!_canAddToCart(p, cartProvider)) return;
+    
     cartProvider.add(p);
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${p.name} agregado'),
-        duration: const Duration(seconds: 1),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+    if (mounted) {
+      setState(() {});
+      _showSuccessSnack('${p.name} agregado al carrito');
+    }
   }
 
-  // ── Ícono del carrito con badge ──
+  // ✅ Badge con límite de dígitos
   Widget _buildCartIcon(CartProvider cartProvider) {
+    final itemCount = cartProvider.itemCount;
+    final displayCount = itemCount > 99 ? '99+' : '$itemCount';
+    
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -129,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onPressed: _goToCart,
           color: AppColors.textDark,
         ),
-        if (cartProvider.itemCount > 0)
+        if (itemCount > 0)
           Positioned(
             right: 4,
             top: 4,
@@ -144,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 minHeight: 16,
               ),
               child: Text(
-                '${cartProvider.itemCount}',
+                displayCount,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 10,
@@ -171,24 +266,21 @@ class _HomeScreenState extends State<HomeScreen> {
           body: SafeArea(
             child: Column(
               children: [
-                // ── Header con carrito ──
                 HomeHeader(
                   onSearchTap: () => _openSearch(products, cartProvider),
-                  actions: _buildCartIcon(cartProvider),  // ← AGREGADO
+                  actions: _buildCartIcon(cartProvider),
                 ),
-
                 const SizedBox(height: 12),
-
-                // ── Categorías ──
                 CategoryChips(
                   categories: _categories,
                   selected: _selectedCategory,
-                  onSelect: (cat) => setState(() => _selectedCategory = cat),
+                  onSelect: (cat) {
+                    if (mounted) {
+                      setState(() => _selectedCategory = cat);
+                    }
+                  },
                 ),
-
                 const SizedBox(height: 10),
-
-                // ── Grid de productos ──
                 Expanded(
                   child: isLoading
                       ? const Center(child: CircularProgressIndicator())
@@ -202,25 +294,29 @@ class _HomeScreenState extends State<HomeScreen> {
                               onAdd: (p) => _addToCart(cartProvider, p),
                             ),
                 ),
-
-                // ── Barra del carrito (opcional, puedes mantenerla) ──
                 if (cartProvider.isNotEmpty)
                   CartBar(
                     itemCount: cartProvider.itemCount,
                     total: cartProvider.total,
                     onTap: _goToCart,
                   ),
-
-                // ── NavBar ──
                 HomeNavBar(
                   selected: _selectedNav,
-                  onMenu: () => setState(() => _selectedNav = 0),
+                  onMenu: () {
+                    if (mounted) {
+                      setState(() => _selectedNav = 0);
+                    }
+                  },
                   onOrders: () {
-                    setState(() => _selectedNav = 1);
+                    if (mounted) {
+                      setState(() => _selectedNav = 1);
+                    }
                     _goToOrderHistory();
                   },
                   onProfile: () {
-                    setState(() => _selectedNav = 2);
+                    if (mounted) {
+                      setState(() => _selectedNav = 2);
+                    }
                     _goToProfile();
                   },
                 ),

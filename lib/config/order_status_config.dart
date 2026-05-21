@@ -32,6 +32,24 @@ class OrderStatusConfig {
     'entregado': Icons.where_to_vote_rounded,
   };
 
+  static const Map<String, Color> paymentColors = {
+    'pagado':   AppColors.success,
+    'pendiente': AppColors.warning,
+    'fallido':  AppColors.error,
+  };
+
+  static const Map<String, String> paymentLabels = {
+    'pagado':   'Pago confirmado',
+    'pendiente': 'Pago pendiente',
+    'fallido':  'Pago fallido',
+  };
+
+  static const Map<String, IconData> paymentIcons = {
+    'pagado':   Icons.check_circle_rounded,
+    'pendiente': Icons.schedule_rounded,
+    'fallido':  Icons.cancel_rounded,
+  };
+
   static const List<String> stepperSteps = ['Pedido', 'Cocina', 'Listo', 'Entregado'];
   
   static const Map<int, Color> stepperColors = {

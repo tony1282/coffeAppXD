@@ -4,6 +4,7 @@ import 'package:coffe_app/screens/auth/register_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
@@ -13,14 +14,26 @@ import 'screens/admin/admin_dashboard.dart';
 import 'providers/auth_provider.dart';
 import 'providers/order_provider.dart';
 import 'providers/product_provider.dart';
-import 'providers/cart_provider.dart';  // ← AGREGAR
+import 'providers/cart_provider.dart';
+import 'models/cart_item_model.dart';  // ✅ AGREGAR (si creaste el modelo)
 import 'config/constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // ✅ Inicializar Hive para persistencia local
+  await Hive.initFlutter();
+  
+  // ✅ Registrar adaptador (después de ejecutar build_runner)
+  Hive.registerAdapter(CartItemModelAdapter());
+  
+  // ✅ Abrir la caja del carrito
+  await Hive.openBox<CartItemModel>('cart');
+  
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
   runApp(const MyApp());
 }
 
@@ -34,7 +47,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
-        ChangeNotifierProvider(create: (_) => CartProvider()),  // ← AGREGAR
+        ChangeNotifierProvider(create: (_) => CartProvider()),
       ],
       child: MaterialApp(
         title: 'Coffee Shop',
@@ -65,15 +78,12 @@ class _AuthGate extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // Esperando respuesta de Firebase
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const _Splash();
         }
 
-        // Sin sesión → Login
         if (!snapshot.hasData) return const LoginScreen();
 
-        // Con sesión → cargar rol desde Firestore y redirigir
         return FutureBuilder(
           future: context.read<AuthProvider>().loadUserModel(),
           builder: (context, roleSnap) {
