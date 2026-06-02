@@ -1,9 +1,12 @@
+// lib/models/order_model.dart
+
 class Order {
   final int? id;
   final String? userId;
+  final String? userName;  // ← AGREGAR
   final List<OrderItem> items;
   final double total;
-  final String status; // pending, confirmed, preparing, shipped, delivered
+  final String status;
   final String? paymentMethod;
   final String? paymentStatus;
   final DateTime createdAt;
@@ -15,6 +18,7 @@ class Order {
   Order({
     this.id,
     this.userId,
+    this.userName,  // ← AGREGAR
     required this.items,
     required this.total,
     required this.status,
@@ -31,11 +35,12 @@ class Order {
     return Order(
       id: json['id'],
       userId: json['user_id'],
+      userName: json['user_name'],  // ← AGREGAR
       items: (json['items'] as List? ?? [])
           .map((i) => OrderItem.fromJson(i))
           .toList(),
-      total: json['total'].toDouble(),
-      status: json['status'],
+      total: (json['total']).toDouble(),
+      status: json['status'] ?? 'pending',
       paymentMethod: json['payment_method'],
       paymentStatus: json['payment_status'],
       createdAt: DateTime.parse(json['created_at']),
@@ -52,6 +57,7 @@ class Order {
     return Order(
       id: id,
       userId: userId,
+      userName: userName,  // ← AGREGAR
       items: items,
       total: total,
       status: status ?? this.status,
@@ -95,7 +101,7 @@ class OrderItem {
       productId: json['product_id'],
       productName: json['product_name'],
       quantity: json['quantity'],
-      price: json['price'].toDouble(),
+      price: (json['price']).toDouble(),
     );
   }
 }

@@ -15,24 +15,27 @@ import 'providers/auth_provider.dart';
 import 'providers/order_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/cart_provider.dart';
-import 'models/cart_item_model.dart';  // ✅ AGREGAR (si creaste el modelo)
+import 'models/cart_item_model.dart';
 import 'config/constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // ✅ Inicializar Hive para persistencia local
+  // Inicializar Hive para persistencia local
   await Hive.initFlutter();
   
-  // ✅ Registrar adaptador (después de ejecutar build_runner)
+  // Registrar adaptador (después de ejecutar build_runner)
   Hive.registerAdapter(CartItemModelAdapter());
   
-  // ✅ Abrir la caja del carrito
+  // Abrir la caja del carrito
   await Hive.openBox<CartItemModel>('cart');
   
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // ❌ NO inicializar Mercado Pago aquí (el SDK no funciona)
+  // MercadoPago.setPublicKey(...)  ← Eliminar esta línea
   
   runApp(const MyApp());
 }

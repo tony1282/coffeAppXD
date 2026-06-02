@@ -67,54 +67,58 @@ class DashboardOrderTile extends StatelessWidget {
     );
   }
 
-  Widget _buildHeaderRow(Color color) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.10),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            '#${order.id ?? '???'}',
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            order.userId ?? '',
-            style: const TextStyle(
-              color: AppColors.textDark,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: AppColors.warning.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            '\$${order.total.toStringAsFixed(2)}',
-            style: const TextStyle(
-              color: AppColors.warning,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  // lib/widgets/admin/dashboard_order_tile.dart
 
+Widget _buildHeaderRow(Color color) {
+  final displayName = order.userName ?? order.userId ?? 'Cliente';
+  
+  return Row(
+    children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          '#${order.id ?? '???'}',
+          style: const TextStyle(
+            color: AppColors.primary,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Text(
+          displayName,
+          style: const TextStyle(
+            color: AppColors.textDark,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: AppColors.warning.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          '\$${order.total.toStringAsFixed(2)}',
+          style: const TextStyle(
+            color: AppColors.warning,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    ],
+  );
+}
   Widget _buildItemsRow() {
     final itemsText = order.items.map((i) => i.productName).join('  ·  ');
     return Text(
