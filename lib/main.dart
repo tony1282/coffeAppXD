@@ -1,22 +1,24 @@
 // lib/main.dart
 
-import 'package:coffe_app/screens/auth/register_screen.dart';
+import 'package:coffe_app/presentation/screens/auth/register_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'presentation/providers/payment_provider.dart';
 
 import 'firebase_options.dart';
-import 'screens/auth/login_screen.dart';
-import 'screens/home_screen.dart';
-import 'screens/admin/admin_dashboard.dart';
-import 'providers/auth_provider.dart';
-import 'providers/order_provider.dart';
-import 'providers/product_provider.dart';
-import 'providers/cart_provider.dart';
-import 'models/cart_item_model.dart';
-import 'config/constants.dart';
+import 'presentation/screens/auth/login_screen.dart';
+import 'presentation/screens/home/home_screen.dart';
+import 'presentation/screens/admin/admin_dashboard.dart';
+import 'presentation/providers/auth_provider.dart';
+import 'presentation/providers/order_provider.dart';
+import 'presentation/providers/product_provider.dart';
+import 'presentation/providers/cart_provider.dart';
+import 'data/models/cart_item_model.dart';
+import 'core/config/constants.dart';
+import 'core/theme/app_theme.dart'; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,9 +36,6 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
-  // ❌ NO inicializar Mercado Pago aquí (el SDK no funciona)
-  // MercadoPago.setPublicKey(...)  ← Eliminar esta línea
-  
   runApp(const MyApp());
 }
 
@@ -51,15 +50,12 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => OrderProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider(create: (_) => PaymentProvider()),
       ],
       child: MaterialApp(
         title: 'Coffee Shop',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
-          scaffoldBackgroundColor: AppColors.background,
-          useMaterial3: true,
-        ),
+        theme: AppTheme.light(),  // 👈 CAMBIADO: usar tema global
         home: const _AuthGate(),
         routes: {
           '/login':    (_) => const LoginScreen(),
