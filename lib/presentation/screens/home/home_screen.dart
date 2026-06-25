@@ -31,15 +31,18 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedCategory = 'Todo';
   bool _isNavigating = false;
 
+  // ── Throttle para agregar al carrito ──
+  // Evita spam de taps — mínimo 800ms entre agrego del mismo producto
+  final Map<int, DateTime> _lastAddTime = {};
+  static const Duration _addThrottle = Duration(milliseconds: 800);
+
   final List<String> _categories = ['Todo', 'Café frío', 'Caliente', 'Galletas'];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        context.read<ProductProvider>().fetchProducts();
-      }
+      if (mounted) context.read<ProductProvider>().fetchProducts();
     });
   }
 
@@ -48,7 +51,18 @@ class _HomeScreenState extends State<HomeScreen> {
     return products.where((p) => p.category == _selectedCategory).toList();
   }
 
-  // ── Validar stock antes de agregar ───────────────────────────
+  // ── Throttle check ──────────────────────────────────────────────
+  bool _isThrottled(int productId) {
+    final last = _lastAddTime[productId];
+    if (last == null) return false;
+    return DateTime.now().difference(last) < _addThrottle;
+  }
+
+  void _markAdded(int productId) {
+    _lastAddTime[productId] = DateTime.now();
+  }
+
+  // ── Validar stock antes de agregar ─────────────────────────────
   bool _canAddToCart(ProductModel product, CartProvider cartProvider) {
     if (product.stock != null && product.stock! <= 0) {
       CustomDialogs.showError(context, '${product.name} no está disponible');
@@ -59,12 +73,10 @@ class _HomeScreenState extends State<HomeScreen> {
       return false;
     }
 
-    final existingIndex = cartProvider.items.indexWhere(
-      (item) => item.product.id == product.id,
-    );
-    final existingItem = existingIndex != -1
-        ? cartProvider.items[existingIndex]
-        : null;
+    final existingIndex = cartProvider.items
+        .indexWhere((item) => item.product.id == product.id);
+    final existingItem =
+        existingIndex != -1 ? cartProvider.items[existingIndex] : null;
 
     if (existingItem != null && product.stock != null) {
       if (existingItem.quantity + 1 > product.stock!) {
@@ -93,16 +105,15 @@ class _HomeScreenState extends State<HomeScreen> {
             if (_canAddToCart(product, cartProvider)) {
               cartProvider.add(product);
               if (mounted) {
-                CustomDialogs.showSuccess(context, '${product.name} agregado al carrito');
+                CustomDialogs.showSuccess(
+                    context, '${product.name} agregado al carrito');
               }
             }
           },
         ),
       ),
     ).whenComplete(() {
-      if (mounted) {
-        _isNavigating = false;
-      }
+      if (mounted) _isNavigating = false;
     });
   }
 
@@ -138,7 +149,11 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(builder: (_) => const OrderHistoryScreen()),
     ).whenComplete(() {
       if (mounted) {
-        _isNavigating = false;
+        // ✅ FIX: regresa al índice 0 (Menú) al volver de Pedidos
+        setState(() {
+          _selectedNav = 0;
+          _isNavigating = false;
+        });
       }
     });
   }
@@ -152,8 +167,11 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(builder: (_) => const ProfileScreen()),
     ).whenComplete(() {
       if (mounted) {
-        setState(() => _selectedNav = 0);
-        _isNavigating = false;
+        // ✅ FIX: regresa al índice 0 (Menú) al volver de Perfil
+        setState(() {
+          _selectedNav = 0;
+          _isNavigating = false;
+        });
       }
     });
   }
@@ -166,8 +184,10 @@ class _HomeScreenState extends State<HomeScreen> {
       delegate: ProductSearchDelegate(
         products: products,
         onAddToCart: (p) {
+          if (_isThrottled(p.id)) return;
           if (_canAddToCart(p, cartProvider)) {
             cartProvider.add(p);
+            _markAdded(p.id);
             if (mounted) {
               CustomDialogs.showSuccess(context, '${p.name} agregado');
               setState(() {});
@@ -179,10 +199,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ✅ FIX: throttle al agregar desde la grid
   void _addToCart(CartProvider cartProvider, ProductModel p) {
+    if (_isThrottled(p.id)) return;
     if (!_canAddToCart(p, cartProvider)) return;
 
     cartProvider.add(p);
+    _markAdded(p.id);
+
     if (mounted) {
       setState(() {});
       CustomDialogs.showSuccess(context, '${p.name} agregado al carrito');
@@ -252,9 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   categories: _categories,
                   selected: _selectedCategory,
                   onSelect: (cat) {
-                    if (mounted) {
-                      setState(() => _selectedCategory = cat);
-                    }
+                    if (mounted) setState(() => _selectedCategory = cat);
                   },
                 ),
                 const SizedBox(height: 10),
@@ -289,20 +311,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 HomeNavBar(
                   selected: _selectedNav,
                   onMenu: () {
-                    if (mounted) {
-                      setState(() => _selectedNav = 0);
-                    }
+                    if (mounted) setState(() => _selectedNav = 0);
                   },
                   onOrders: () {
-                    if (mounted) {
-                      setState(() => _selectedNav = 1);
-                    }
+                    if (mounted) setState(() => _selectedNav = 1);
                     _goToOrderHistory();
                   },
                   onProfile: () {
-                    if (mounted) {
-                      setState(() => _selectedNav = 2);
-                    }
+                    if (mounted) setState(() => _selectedNav = 2);
                     _goToProfile();
                   },
                 ),

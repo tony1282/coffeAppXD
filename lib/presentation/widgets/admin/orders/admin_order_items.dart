@@ -13,54 +13,74 @@ class AdminOrderItems extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = order.items ?? [];
 
-    return Column(
-      children: items.asMap().entries.map((entry) {
-        final i = entry.key;
-        final item = entry.value;
-        return Column(
-          children: [
-            if (i > 0) const Divider(height: 1, color: Color(0xFFEEEEEE)),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-              child: Row(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.10),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${item.quantity}',
-                        style: AppTextStyles.labelSmall.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      item.productName,
-                      style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  Text(
-                    '\$${(item.price * item.quantity).toStringAsFixed(2)}',
-                    style: AppTextStyles.labelMedium.copyWith(
-                      color: AppColors.warning,
+    if (items.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(
+          child: Text(
+            'No hay productos en este pedido',
+            style: TextStyle(color: AppColors.textGrey),
+          ),
+        ),
+      );
+    }
+
+    // ✅ USAR LISTA DE WIDGETS CORRECTAMENTE
+    final List<Widget> itemWidgets = [];
+    
+    for (int i = 0; i < items.length; i++) {
+      final item = items[i];
+      
+      if (i > 0) {
+        itemWidgets.add(
+          const Divider(height: 1, color: AppColors.divider),
+        );
+      }
+      
+      itemWidgets.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    '${item.quantity}',
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: AppColors.primary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
-        );
-      }).toList(),
-    );
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  item.productName ?? 'Producto',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(
+                '\$${(item.price * item.quantity).toStringAsFixed(2)}',
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: AppColors.warning,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(children: itemWidgets);
   }
 }

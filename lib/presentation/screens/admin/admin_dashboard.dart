@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/config/constants.dart';
-import '../../../core/theme/text_styles.dart';
 import '../../../core/ui/custom_dialogs.dart';
 import '../../../presentation/providers/order_provider.dart';
 import '../../../presentation/providers/product_provider.dart';
@@ -36,9 +35,7 @@ class _AdminDashboardState extends State<AdminDashboard>
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _fadeCtrl.forward();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
   }
 
   @override
@@ -49,12 +46,9 @@ class _AdminDashboardState extends State<AdminDashboard>
 
   Future<void> _loadData() async {
     try {
-      final orderProvider = context.read<OrderProvider>();
-      final productProvider = context.read<ProductProvider>();
-
       await Future.wait([
-        orderProvider.fetchOrders(),
-        productProvider.fetchProducts(),
+        context.read<OrderProvider>().fetchOrders(),
+        context.read<ProductProvider>().fetchProducts(),
       ]);
     } catch (e) {
       if (mounted) {
@@ -66,8 +60,10 @@ class _AdminDashboardState extends State<AdminDashboard>
   void _switchTab(int index) {
     if (_currentTab == index) return;
     _fadeCtrl.reverse().then((_) {
-      setState(() => _currentTab = index);
-      _fadeCtrl.forward();
+      if (mounted) {
+        setState(() => _currentTab = index);
+        _fadeCtrl.forward();
+      }
     });
   }
 
@@ -81,8 +77,9 @@ class _AdminDashboardState extends State<AdminDashboard>
             const DashboardTopBar(),
             Consumer<OrderProvider>(
               builder: (context, orderProvider, _) {
+                // ✅ FIX: usar 'pending' en inglés, no 'pendiente'
                 final pendingCount = orderProvider.orders
-                    .where((o) => o.status == 'pendiente')
+                    .where((o) => o.status == 'pending')
                     .length;
                 return DashboardTabBar(
                   currentTab: _currentTab,

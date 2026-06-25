@@ -1,17 +1,27 @@
-// lib/widgets/admin/order_detail_map.dart
-import 'package:coffe_app/core/config/constants.dart';
+// lib/presentation/widgets/order/order_detail_map.dart
+
 import 'package:flutter/material.dart';
+import '../../../core/config/constants.dart';
+import '../../../core/theme/text_styles.dart';
 
 class OrderDetailMap extends StatelessWidget {
   final String address;
+  final double? lat;
+  final double? lng;
 
   const OrderDetailMap({
     super.key,
     required this.address,
+    this.lat,
+    this.lng,
   });
 
   @override
   Widget build(BuildContext context) {
+    // ✅ CONVERTIR A DOUBLE CORRECTAMENTE
+    final double parsedLat = lat != null ? lat!.toDouble() : 19.4326;
+    final double parsedLng = lng != null ? lng!.toDouble() : -99.1332;
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card,
@@ -56,7 +66,6 @@ class OrderDetailMap extends StatelessWidget {
           ),
           Divider(height: 1, thickness: 1,
               color: AppColors.textGrey.withOpacity(0.10)),
-          // Dirección
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: Text(
@@ -68,27 +77,35 @@ class OrderDetailMap extends StatelessWidget {
               ),
             ),
           ),
-          // Tiempo estimado — estilo wireframe cart
+          // ✅ FILA CORREGIDA (SIN DESBORDAMIENTO)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
             child: Row(
               children: [
-                Icon(Icons.schedule_rounded,
-                    size: 14, color: AppColors.textGrey),
+                const Icon(
+                  Icons.schedule_rounded,
+                  size: 14,
+                  color: AppColors.textGrey,
+                ),
                 const SizedBox(width: 5),
-                Text(
-                  'Tiempo estimado: 15 - 20 min',
-                  style: TextStyle(
-                    color: AppColors.textGrey,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                Expanded(
+                  child: Text(
+                    'Tiempo estimado: 15 - 20 min',
+                    style: TextStyle(
+                      color: AppColors.textGrey,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-                const Spacer(),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () {
+                    final url =
+                        'https://www.google.com/maps/search/?api=1&query=$address';
+                    // TODO: Implementar url_launcher
+                  },
                   child: Text(
-                    'Cambiar',
+                    'Ver en mapa',
                     style: TextStyle(
                       color: AppColors.primary,
                       fontSize: 12,
@@ -99,7 +116,6 @@ class OrderDetailMap extends StatelessWidget {
               ],
             ),
           ),
-          // Mapa simulado
           Container(
             height: 140,
             width: double.infinity,
@@ -132,13 +148,24 @@ class OrderDetailMap extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Mapa en tiempo real — próximamente',
+                        lat != null && lng != null
+                            ? '📍 Ubicación del cliente'
+                            : 'Ubicación no disponible',
                         style: TextStyle(
                           color: AppColors.textGrey,
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
+                      if (lat != null && lng != null)
+                        Text(
+                          'Lat: ${parsedLat.toStringAsFixed(4)}, Lng: ${parsedLng.toStringAsFixed(4)}',
+                          style: TextStyle(
+                            color: AppColors.textGrey.withOpacity(0.6),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
                     ],
                   ),
                 ),

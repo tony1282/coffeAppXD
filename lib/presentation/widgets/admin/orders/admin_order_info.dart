@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../../core/config/constants.dart';
 import '../../../../../core/theme/text_styles.dart';
+import '../../../../../core/ui/custom_dialogs.dart';
 import '../../../../../presentation/widgets/order/order_detail_info_row.dart';
 
 class AdminOrderInfo extends StatelessWidget {
@@ -13,14 +14,7 @@ class AdminOrderInfo extends StatelessWidget {
 
   void _copyToClipboard(BuildContext context, String text, String message) {
     Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    CustomDialogs.showSuccess(context, message);
   }
 
   @override
@@ -33,19 +27,28 @@ class AdminOrderInfo extends StatelessWidget {
           value: order.userName ?? 'Usuario',
         ),
         const OrderDetailInfoDivider(),
+        // ✅ QUITAR TELÉFONO (no existe en el modelo)
+        // Mostrar ID del usuario en su lugar
         OrderDetailInfoRow(
-          icon: Icons.phone_outlined,
-          label: 'Teléfono',
-          value: order.userPhone ?? 'No disponible',
+          icon: Icons.person_pin_rounded,
+          label: 'ID Usuario',
+          value: order.userId ?? 'No disponible',
           trailing: GestureDetector(
-            onTap: () => _copyToClipboard(context, order.userPhone ?? '', 'Teléfono copiado'),
+            onTap: () => _copyToClipboard(
+              context,
+              order.userId ?? '',
+              'ID de usuario copiado',
+            ),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: AppColors.primary.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Text('Copiar', style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary)),
+              child: Text(
+                'Copiar',
+                style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary),
+              ),
             ),
           ),
         ),

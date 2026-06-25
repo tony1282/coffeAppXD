@@ -39,6 +39,52 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
     }
   }
 
+  Future<void> _cancelOrder() async {
+    if (_isProcessing) return;
+
+    final orderProvider = context.read<OrderProvider>();
+    final order = orderProvider.currentOrder;
+    if (order == null) return;
+
+    if (order.status == 'delivered' || order.status == 'cancelled') {
+      CustomDialogs.showError(context, 'Este pedido ya está finalizado');
+      return;
+    }
+
+    // ✅ FIX: guardar el id ANTES de cualquier await
+    final orderId = order.id!;
+
+    final confirmed = await CustomDialogs.showConfirm(
+      context: context,
+      title: 'Cancelar pedido',
+      message: '¿Cancelar el pedido #$orderId?\n\nSe devolverá el stock de los productos.',
+      confirmText: 'Cancelar pedido',
+      cancelText: 'No cancelar',
+      confirmColor: AppColors.error,
+    );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    setState(() => _isProcessing = true);
+
+    final success = await orderProvider.cancelOrder(orderId);
+
+    if (mounted) {
+      if (success) {
+        CustomDialogs.showSuccess(context, 'Pedido #$orderId cancelado');
+        // ✅ FIX: usar orderId guardado, no order.id
+        await orderProvider.fetchOrderById(orderId);
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) Navigator.pop(context);
+        });
+      } else {
+        CustomDialogs.showError(context, 'Error al cancelar el pedido');
+      }
+      setState(() => _isProcessing = false);
+    }
+  }
+
   Future<void> _advanceStatus() async {
     if (_isProcessing) return;
 
@@ -46,9 +92,16 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
     final order = orderProvider.currentOrder;
     if (order == null) return;
 
+    if (order.status == 'cancelled' || order.status == 'delivered') {
+      CustomDialogs.showError(context, 'Este pedido ya está finalizado');
+      return;
+    }
+
     final currentIdx = OrderStatusConfig.flow.indexOf(order.status);
     if (currentIdx >= OrderStatusConfig.flow.length - 1) return;
 
+    // ✅ FIX: guardar todo lo necesario ANTES de cualquier await
+    final orderId = order.id!;
     final nextStatus = OrderStatusConfig.flow[currentIdx + 1];
     final nextLabel = OrderStatusConfig.labels[nextStatus] ?? nextStatus;
 
@@ -62,20 +115,23 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
     );
 
     if (confirmed != true) return;
+    if (!mounted) return;
 
     setState(() => _isProcessing = true);
 
-    final success = await orderProvider.updateOrderStatus(order.id!, nextStatus);
+    final success = await orderProvider.updateOrderStatus(orderId, nextStatus);
 
     if (mounted) {
       if (success) {
         CustomDialogs.showSuccess(context, 'Pedido actualizado a $nextLabel');
+        // ✅ FIX: el provider ya actualizó _currentOrder en updateOrderStatus
+        // Solo refrescamos desde el backend para confirmar
+        await orderProvider.fetchOrderById(orderId);
       } else {
         CustomDialogs.showError(context, 'Error al actualizar el estado');
       }
+      setState(() => _isProcessing = false);
     }
-
-    if (mounted) setState(() => _isProcessing = false);
   }
 
   @override
@@ -88,11 +144,11 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
             final order = orderProvider.currentOrder;
             final isLoading = orderProvider.isLoading;
 
-            if (isLoading) {
+            // ✅ FIX: mostrar loading solo si no hay orden cargada todavía
+            // Si ya hay orden y solo estamos refrescando, no mostrar pantalla de carga
+            if (isLoading && order == null) {
               return const Center(
-                child: CircularProgressIndicator(
-                  color: AppColors.primary,
-                ),
+                child: CircularProgressIndicator(color: AppColors.primary),
               );
             }
 
@@ -109,6 +165,8 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
 
             final statusIdx = OrderStatusConfig.flow.indexOf(order.status);
             final isLast = statusIdx == OrderStatusConfig.flow.length - 1;
+            final isCancelled = order.status == 'cancelled';
+            final isDelivered = order.status == 'delivered';
 
             return Column(
               children: [
@@ -119,39 +177,51 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
                     children: [
                       OrderDetailStatusStepper(currentStatus: order.status),
                       const SizedBox(height: 20),
-                      if (!isLast && !_isProcessing)
+
+                      if (!isLast && !_isProcessing && !isCancelled && !isDelivered)
                         _buildAdvanceButton(statusIdx),
-                      if (!isLast && !_isProcessing) const SizedBox(height: 20),
-                      if (order.deliveryAddress != null)
-                        OrderDetailMap(address: order.deliveryAddress!),
+                      if (!isLast && !_isProcessing && !isCancelled && !isDelivered)
+                        const SizedBox(height: 20),
+
+                      OrderDetailMap(
+                        address: order.deliveryAddress ?? 'Dirección no especificada',
+                        lat: order.deliveryLat ?? 19.4326,
+                        lng: order.deliveryLng ?? -99.1332,
+                      ),
                       const SizedBox(height: 20),
+
                       OrderDetailSection(
                         title: 'Cliente',
                         icon: Icons.person_rounded,
                         child: AdminOrderInfo(order: order),
                       ),
                       const SizedBox(height: 14),
+
                       OrderDetailSection(
                         title: 'Productos',
                         icon: Icons.coffee_rounded,
                         child: AdminOrderItems(order: order),
                       ),
                       const SizedBox(height: 14),
+
                       OrderDetailSection(
                         title: 'Pago',
                         icon: Icons.payment_rounded,
                         child: AdminOrderPayment(order: order),
                       ),
+                      const SizedBox(height: 14),
+
                       if (order.notes != null && order.notes!.isNotEmpty) ...[
-                        const SizedBox(height: 14),
                         OrderDetailSection(
                           title: 'Notas del cliente',
                           icon: Icons.sticky_note_2_rounded,
                           child: AdminOrderNotes(order: order),
                         ),
+                        const SizedBox(height: 14),
                       ],
+
+                      if (!isCancelled && !isDelivered) _buildCancelButton(),
                       const SizedBox(height: 20),
-                      AdminOrderActions(order: order),
                     ],
                   ),
                 ),
@@ -194,6 +264,40 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
                   color: Colors.white,
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCancelButton() {
+    return Container(
+      height: 50,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.error.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.error.withOpacity(0.25)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: _cancelOrder,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.cancel_outlined, color: AppColors.error, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                'Cancelar pedido',
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],

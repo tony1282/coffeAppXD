@@ -1,7 +1,9 @@
+// lib/presentation/widgets/home/cart_bar.dart
+
 import 'package:coffe_app/core/config/constants.dart';
 import 'package:flutter/material.dart';
 
-class CartBar extends StatelessWidget {
+class CartBar extends StatefulWidget {
   final int itemCount;
   final double total;
   final VoidCallback onTap;
@@ -14,9 +16,26 @@ class CartBar extends StatelessWidget {
   });
 
   @override
+  State<CartBar> createState() => _CartBarState();
+}
+
+class _CartBarState extends State<CartBar> {
+  bool _tapped = false;
+
+  void _handleTap() {
+    if (_tapped) return;
+    _tapped = true;
+    widget.onTap();
+    // Reset después de 1 segundo para permitir volver a tocar
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) setState(() => _tapped = false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: _handleTap,
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -50,7 +69,7 @@ class CartBar extends StatelessWidget {
                     ),
                     child: Center(
                       child: Text(
-                        '$itemCount',
+                        '${widget.itemCount}',
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w800,
@@ -63,7 +82,6 @@ class CartBar extends StatelessWidget {
               ],
             ),
             const SizedBox(width: 12),
-            // Label + resumen
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -79,7 +97,7 @@ class CartBar extends StatelessWidget {
                 ),
                 const SizedBox(height: 1),
                 Text(
-                  '$itemCount ${itemCount == 1 ? 'Producto' : 'Productos'} • \$${total.toStringAsFixed(2)}',
+                  '${widget.itemCount} ${widget.itemCount == 1 ? 'Producto' : 'Productos'} • \$${widget.total.toStringAsFixed(2)}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 13,
@@ -89,10 +107,9 @@ class CartBar extends StatelessWidget {
               ],
             ),
             const Spacer(),
-            // Ver carrito >
-            Row(
+            const Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
+              children: [
                 Text(
                   'Ver carrito',
                   style: TextStyle(

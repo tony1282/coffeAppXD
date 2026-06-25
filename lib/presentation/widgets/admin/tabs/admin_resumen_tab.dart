@@ -149,7 +149,6 @@ class AdminResumenTab extends StatelessWidget {
         ...orders.take(4).map(
               (o) => DashboardOrderTile(
                 order: o,
-                onStatusChange: (_) {},
               ),
             ),
       ],

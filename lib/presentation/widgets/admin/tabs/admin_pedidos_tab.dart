@@ -7,6 +7,7 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../core/ui/custom_dialogs.dart';
 import '../../../../presentation/providers/order_provider.dart';
 import '../../../../presentation/widgets/admin/dashboard_order_tile.dart';
+import '../../../screens/admin/orders/admin_order_detail.dart';
 
 class AdminPedidosTab extends StatefulWidget {
   final Future<void> Function() onRefresh;
@@ -22,56 +23,30 @@ class AdminPedidosTab extends StatefulWidget {
 
 class _AdminPedidosTabState extends State<AdminPedidosTab> {
   String _filtroPedidos = 'Todos';
-  final Set<int> _updatingOrders = {};
 
-  final List<String> _filtros = ['Todos', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado'];
+  final List<String> _filtros = [
+    'Todos', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado'
+  ];
 
-  static const Map<String, String> _estadosMap = {
-    'pending': 'Pendiente',
-    'confirmed': 'Preparando',
-    'preparing': 'Listo',
-    'shipped': 'En camino',
-    'delivered': 'Entregado',
-    'cancelled': 'Cancelado',
+  static const Map<String, String> _filtroToStatus = {
+    'Pendiente':  'pending',
+    'Preparando': 'confirmed',
+    'Listo':      'preparing',
+    'En camino':  'shipped',
+    'Entregado':  'delivered',
   };
 
-  String _getStatusLabel(String status) {
-    return _estadosMap[status] ?? status;
-  }
-
-  Future<void> _updateOrderStatus(int? orderId, String newStatus) async {
-    print('🔍 [ADMIN] _updateOrderStatus: orderId=$orderId, newStatus="$newStatus"');
-    
-    // ✅ VALIDAR QUE orderId NO SEA NULL
+  void _openOrderDetail(int? orderId) {
     if (orderId == null) {
-      print('❌ [ADMIN] orderId es null, ignorando');
-      CustomDialogs.showError(context, 'Error: ID de pedido no encontrado');
+      CustomDialogs.showError(context, 'Error: ID de pedido no disponible');
       return;
     }
-    
-    if (_updatingOrders.contains(orderId)) return;
-
-    _updatingOrders.add(orderId);
-
-    try {
-      print('🔍 [ADMIN] Llamando a updateOrderStatus...');
-      await context.read<OrderProvider>().updateOrderStatus(orderId, newStatus);
-      print('✅ [ADMIN] updateOrderStatus exitoso');
-      
-      if (mounted) {
-        final label = _getStatusLabel(newStatus);
-        CustomDialogs.showSuccess(context, 'Pedido actualizado a $label');
-        // ✅ ACTUALIZAR LA LISTA LOCALMENTE (sin fetch completo)
-        setState(() {});
-      }
-    } catch (e) {
-      print('❌ [ADMIN] Error: $e');
-      if (mounted) {
-        CustomDialogs.showError(context, 'Error al actualizar el estado');
-      }
-    } finally {
-      if (mounted) _updatingOrders.remove(orderId);
-    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AdminOrderDetail(orderId: orderId),
+      ),
+    );
   }
 
   @override
@@ -81,30 +56,31 @@ class _AdminPedidosTabState extends State<AdminPedidosTab> {
         final lista = _filtroPedidos == 'Todos'
             ? orderProvider.orders
             : orderProvider.orders
-                .where((o) => o.status == _filtroPedidos.toLowerCase())
+                .where((o) => o.status == _filtroToStatus[_filtroPedidos])
                 .toList();
 
         return RefreshIndicator(
           onRefresh: widget.onRefresh,
+          color: AppColors.primary,
           child: Column(
             children: [
               _buildFilterBar(),
               _buildOrderCounter(lista.length),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                  children: lista
-                      .map(
-                        (o) => DashboardOrderTile(
-                          order: o,
-                          expanded: true,
-                          onStatusChange: (newStatus) {
-                            _updateOrderStatus(o.id, newStatus);
-                          },
-                        ),
-                      )
-                      .toList(),
-                ),
+                child: lista.isEmpty
+                    ? _buildEmpty()
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                        itemCount: lista.length,
+                        itemBuilder: (_, i) {
+                          final o = lista[i];
+                          return DashboardOrderTile(
+                            order: o,
+                            expanded: false,
+                            onTap: () => _openOrderDetail(o.id),
+                          );
+                        },
+                      ),
               ),
             ],
           ),
@@ -161,10 +137,33 @@ class _AdminPedidosTabState extends State<AdminPedidosTab> {
       child: Row(
         children: [
           Text(
-            '$count pedidos',
+            '$count pedido${count == 1 ? '' : 's'}',
+            style: AppTextStyles.labelSmall.copyWith(color: AppColors.textGrey),
+          ),
+          const Spacer(),
+          Text(
+            'Toca para ver detalle',
             style: AppTextStyles.labelSmall.copyWith(
-              color: AppColors.textGrey,
+              color: AppColors.textGrey.withOpacity(0.6),
+              fontSize: 10,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmpty() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.receipt_long_rounded,
+              size: 48, color: AppColors.textGrey.withOpacity(0.4)),
+          const SizedBox(height: 12),
+          Text(
+            'No hay pedidos',
+            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textGrey),
           ),
         ],
       ),

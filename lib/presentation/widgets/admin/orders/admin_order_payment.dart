@@ -10,15 +10,36 @@ class AdminOrderPayment extends StatelessWidget {
 
   const AdminOrderPayment({super.key, required this.order});
 
+  // ✅ FUNCIÓN SEGURA PARA CONVERTIR A DOUBLE
+  double _toDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final pColor = OrderStatusConfig.paymentColors[order.paymentStatus] ?? AppColors.textGrey;
     final pLabel = OrderStatusConfig.paymentLabels[order.paymentStatus] ?? 'Pendiente';
     final pIcon = OrderStatusConfig.paymentIcons[order.paymentStatus] ?? Icons.payment_rounded;
 
-    final subtotal = order.items?.fold<double>(0, (s, i) => s + (i.price * i.quantity)) ?? 0.0;
-    final deliveryFee = 35.0; // TODO: obtener del backend
-    final total = order.total ?? 0.0;
+    // ✅ CALCULAR SUBTOTAL USANDO LAS PROPIEDADES DE OrderItem
+    double subtotal = 0.0;
+    final items = order.items;
+    if (items != null && items is List) {
+      for (final item in items) {
+        // ✅ ACCEDER A LAS PROPIEDADES DIRECTAMENTE
+        final price = _toDouble(item.price);
+        final quantity = item.quantity ?? 0;
+        subtotal += price * quantity;
+      }
+    }
+
+    final deliveryFee = 35.0;
+    final total = _toDouble(order.total ?? 0);
 
     return Column(
       children: [
@@ -38,10 +59,20 @@ class AdminOrderPayment extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(pLabel, style: TextStyle(color: pColor, fontSize: 12, fontWeight: FontWeight.w800)),
+                    Text(
+                      pLabel,
+                      style: TextStyle(
+                        color: pColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                     Text(
                       'Método: ${order.paymentMethod ?? 'No especificado'}',
-                      style: TextStyle(color: pColor.withOpacity(0.7), fontSize: 10),
+                      style: TextStyle(
+                        color: pColor.withOpacity(0.7),
+                        fontSize: 10,
+                      ),
                     ),
                   ],
                 ),
@@ -50,12 +81,23 @@ class AdminOrderPayment extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        const Divider(height: 1, color: Color(0xFFEEEEEE)),
-        _PaymentRow(label: 'Subtotal', value: '\$${subtotal.toStringAsFixed(2)}'),
-        const Divider(height: 1, color: Color(0xFFEEEEEE)),
-        _PaymentRow(label: 'Envío', value: '\$${deliveryFee.toStringAsFixed(2)}', badge: 'domicilio'),
-        const Divider(height: 1, color: Color(0xFFEEEEEE)),
-        _PaymentRow(label: 'Total', value: '\$${total.toStringAsFixed(2)}', isHighlight: true),
+        const Divider(height: 1, color: AppColors.divider),
+        _PaymentRow(
+          label: 'Subtotal',
+          value: '\$${subtotal.toStringAsFixed(2)}',
+        ),
+        const Divider(height: 1, color: AppColors.divider),
+        _PaymentRow(
+          label: 'Envío',
+          value: '\$${deliveryFee.toStringAsFixed(2)}',
+          badge: 'domicilio',
+        ),
+        const Divider(height: 1, color: AppColors.divider),
+        _PaymentRow(
+          label: 'Total',
+          value: '\$${total.toStringAsFixed(2)}',
+          isHighlight: true,
+        ),
       ],
     );
   }
@@ -82,7 +124,9 @@ class _PaymentRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: isHighlight ? AppTextStyles.titleSmall : AppTextStyles.bodySmall.copyWith(color: AppColors.textGrey),
+            style: isHighlight
+                ? AppTextStyles.titleSmall
+                : AppTextStyles.bodySmall.copyWith(color: AppColors.textGrey),
           ),
           if (badge != null) ...[
             const SizedBox(width: 6),
@@ -92,7 +136,10 @@ class _PaymentRow extends StatelessWidget {
                 color: AppColors.textGrey.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(5),
               ),
-              child: Text(badge!, style: AppTextStyles.labelSmall.copyWith(color: AppColors.textGrey)),
+              child: Text(
+                badge!,
+                style: AppTextStyles.labelSmall.copyWith(color: AppColors.textGrey),
+              ),
             ),
           ],
           const Spacer(),

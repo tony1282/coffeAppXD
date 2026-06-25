@@ -3,39 +3,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../../core/config/constants.dart';
+import '../../../../../core/ui/custom_dialogs.dart';
 import '../../../../../presentation/widgets/order/order_detail_action_button.dart';
 
 class AdminOrderActions extends StatelessWidget {
   final dynamic order;
 
   const AdminOrderActions({super.key, required this.order});
-
-  void _showCancelDialog(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.card,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('¿Cancelar pedido?'),
-        content: Text('Se cancelará el pedido #${order.id}'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Cancelar'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      // TODO: implementar cancelación
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Función en desarrollo'), behavior: SnackBarBehavior.floating),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +20,9 @@ class AdminOrderActions extends StatelessWidget {
             icon: Icons.phone_rounded,
             label: 'Llamar',
             color: AppColors.success,
-            onTap: () {},
+            onTap: () {
+              CustomDialogs.showInfo(context, 'Función en desarrollo');
+            },
           ),
         ),
         const SizedBox(width: 10),
@@ -57,19 +33,19 @@ class AdminOrderActions extends StatelessWidget {
             color: AppColors.textGrey,
             onTap: () {
               Clipboard.setData(ClipboardData(text: '#${order.id}'));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: const Text('ID copiado'), backgroundColor: AppColors.success, behavior: SnackBarBehavior.floating),
-              );
+              CustomDialogs.showSuccess(context, 'ID copiado');
             },
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: OrderDetailActionButton(
-            icon: Icons.cancel_outlined,
-            label: 'Cancelar',
-            color: AppColors.error,
-            onTap: () => _showCancelDialog(context),
+            icon: Icons.share_rounded,
+            label: 'Compartir',
+            color: AppColors.primary,
+            onTap: () {
+              CustomDialogs.showInfo(context, 'Función en desarrollo');
+            },
           ),
         ),
       ],

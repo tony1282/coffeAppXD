@@ -13,32 +13,24 @@ import '../../data/services/order_service.dart';
 class OrderProvider with ChangeNotifier {
   final OrderService _service = OrderService();
 
-  // ============================================================
-  // CONFIGURACIÓN DE SEGURIDAD (SOLO INGLÉS)
-  // ============================================================
   static const int _maxOrders = 2000;
   static const Duration _requestTimeout = Duration(seconds: 20);
   static const int _maxRetries = 2;
   static const Duration _retryDelay = Duration(milliseconds: 500);
 
-  // ✅ SOLO INGLÉS
   static const List<String> _validStatuses = [
     'pending', 'confirmed', 'preparing', 'shipped', 'delivered', 'cancelled',
   ];
 
-  // ✅ TRANSICIONES EN INGLÉS
   static const Map<String, List<String>> _allowedTransitions = {
-    'pending': ['confirmed', 'cancelled'],
+    'pending':   ['confirmed', 'cancelled'],
     'confirmed': ['preparing', 'cancelled'],
     'preparing': ['shipped', 'cancelled'],
-    'shipped': ['delivered', 'cancelled'],
+    'shipped':   ['delivered', 'cancelled'],
     'delivered': [],
     'cancelled': [],
   };
 
-  // ============================================================
-  // ESTADO
-  // ============================================================
   List<Order> _orders = [];
   List<Order> _activeOrders = [];
   Order? _currentOrder;
@@ -58,17 +50,13 @@ class OrderProvider with ChangeNotifier {
 
   void _handleFailure(Failure failure) {
     _setError(failure.message);
-    if (kDebugMode) {
-      AppLogger.error('OrderProvider: ${failure.message}');
-    }
+    if (kDebugMode) AppLogger.error('OrderProvider: ${failure.message}');
   }
 
   bool _isValidOrderId(int id) => id > 0;
   bool _isValidStatus(String status) => _validStatuses.contains(status);
-
-  bool _isValidTransition(String current, String next) {
-    return _allowedTransitions[current]?.contains(next) ?? false;
-  }
+  bool _isValidTransition(String current, String next) =>
+      _allowedTransitions[current]?.contains(next) ?? false;
 
   Future<T> _withNetworkFallback<T>(Future<T> Function() request) async {
     int attempt = 0;
@@ -85,59 +73,46 @@ class OrderProvider with ChangeNotifier {
     }
   }
 
-  // ============================================================
-  // FETCH ORDERS (SIN PASAR userId, EL BACKEND USA EL TOKEN)
-  // ============================================================
+  // ────────────────────────────────────────────────────────────────
+  // FETCH ORDERS
+  // ────────────────────────────────────────────────────────────────
   Future<void> fetchOrders({String? userId}) async {
-    if (_isFetching) {
-      if (kDebugMode) {
-        AppLogger.debug('OrderProvider: fetchOrders - YA EN PROCESO, IGNORANDO');
-      }
-      return;
-    }
-
+    if (_isFetching) return;
     _isFetching = true;
     _clearError();
     _setLoading(true);
 
-    if (kDebugMode) {
-      AppLogger.debug('OrderProvider: fetchOrders - INICIO');
-    }
+    if (kDebugMode) AppLogger.debug('OrderProvider: fetchOrders - INICIO');
 
     try {
-      // ✅ NO PASAR userId, el backend usa el token
-      final fetched = await _withNetworkFallback(
-        () => _service.getOrders()
-      );
+      final fetched = await _withNetworkFallback(() => _service.getOrders());
 
-      if (kDebugMode) {
-        AppLogger.debug('OrderProvider: fetched count: ${fetched.length}');
-      }
+      if (kDebugMode) AppLogger.debug('OrderProvider: fetched count: ${fetched.length}');
 
       final truncated = fetched.length > _maxOrders
           ? fetched.sublist(0, _maxOrders)
           : fetched;
 
       _orders = truncated;
-      _activeOrders = _orders.where((o) =>
-          o.status != 'delivered' && o.status != 'cancelled').toList();
+      _activeOrders = _orders
+          .where((o) => o.status != 'delivered' && o.status != 'cancelled')
+          .toList();
 
       notifyListeners();
     } catch (e) {
-      final failure = ErrorHandler.handleError(e);
-      _handleFailure(failure);
-      if (kDebugMode) {
-        AppLogger.error('OrderProvider: Error en fetchOrders: $e');
-      }
+      _handleFailure(ErrorHandler.handleError(e));
+      if (kDebugMode) AppLogger.error('OrderProvider: Error en fetchOrders: $e');
     } finally {
       _setLoading(false);
       _isFetching = false;
     }
   }
 
-  // ============================================================
+  // ────────────────────────────────────────────────────────────────
   // FETCH ORDER BY ID
-  // ============================================================
+  // ✅ FIX: también actualiza _orders para que updateOrderStatus
+  // siga encontrando el pedido después de un fetchOrderById
+  // ────────────────────────────────────────────────────────────────
   Future<void> fetchOrderById(int id) async {
     if (!_isValidOrderId(id)) {
       _setError('ID de pedido inválido');
@@ -147,52 +122,67 @@ class OrderProvider with ChangeNotifier {
     _setLoading(true);
 
     try {
-      _currentOrder = await _withNetworkFallback(() => _service.getOrderById(id));
+      final fresh = await _withNetworkFallback(() => _service.getOrderById(id));
+
+      // Actualizar _currentOrder
+      _currentOrder = fresh;
+
+      // ✅ FIX: sincronizar también en _orders
+      final idx = _orders.indexWhere((o) => o.id == id);
+      if (idx != -1) {
+        _orders[idx] = fresh;
+      } else {
+        // Si no estaba en la lista (ej. admin abrió pedido de otro usuario)
+        // lo insertamos al inicio
+        _orders.insert(0, fresh);
+      }
+
+      _activeOrders = _orders
+          .where((o) => o.status != 'delivered' && o.status != 'cancelled')
+          .toList();
+
       notifyListeners();
     } catch (e) {
-      final failure = ErrorHandler.handleError(e);
-      _handleFailure(failure);
+      _handleFailure(ErrorHandler.handleError(e));
     } finally {
       _setLoading(false);
     }
   }
 
-  // ============================================================
+  // ────────────────────────────────────────────────────────────────
   // CREATE ORDER
-  // ============================================================
+  // ────────────────────────────────────────────────────────────────
   Future<bool> createOrder(Map<String, dynamic> orderData) async {
     _clearError();
     _setLoading(true);
 
     try {
-      final newOrder = await _withNetworkFallback(() => _service.createOrder(orderData));
+      final newOrder =
+          await _withNetworkFallback(() => _service.createOrder(orderData));
 
       _orders.insert(0, newOrder);
-      _activeOrders = _orders.where((o) =>
-          o.status != 'delivered' && o.status != 'cancelled').toList();
+      _activeOrders = _orders
+          .where((o) => o.status != 'delivered' && o.status != 'cancelled')
+          .toList();
 
       notifyListeners();
       return true;
     } catch (e) {
-      final failure = ErrorHandler.handleError(e);
-      _handleFailure(failure);
+      _handleFailure(ErrorHandler.handleError(e));
       return false;
     } finally {
       _setLoading(false);
     }
   }
 
-  // ============================================================
+  // ────────────────────────────────────────────────────────────────
   // UPDATE ORDER STATUS
-  // ============================================================
+  // ────────────────────────────────────────────────────────────────
   Future<bool> updateOrderStatus(int id, String status) async {
-    print('🔍 [PROVIDER] updateOrderStatus: id=$id, status="$status"');
-
     _clearError();
 
     if (!_isValidOrderId(id)) {
       _setError('ID de pedido inválido');
-      print('❌ [PROVIDER] ID inválido');
       return false;
     }
 
@@ -200,66 +190,63 @@ class OrderProvider with ChangeNotifier {
 
     if (!_isValidStatus(normalizedStatus)) {
       _setError('Estado inválido');
-      print('❌ [PROVIDER] Estado inválido: $normalizedStatus');
       return false;
     }
 
     final idx = _orders.indexWhere((o) => o.id == id);
     if (idx == -1) {
       _setError('Pedido no encontrado');
-      print('❌ [PROVIDER] Pedido no encontrado: $id');
+      if (kDebugMode) AppLogger.error('OrderProvider: Pedido $id no en _orders');
       return false;
     }
 
     final currentOrder = _orders[idx];
-    print('🔍 [PROVIDER] Estado actual: ${currentOrder.status}');
 
     if (!_isValidTransition(currentOrder.status, normalizedStatus)) {
-      _setError('No se puede cambiar de ${currentOrder.status} a $normalizedStatus');
-      print('❌ [PROVIDER] Transición inválida: ${currentOrder.status} → $normalizedStatus');
+      _setError(
+          'No se puede cambiar de ${currentOrder.status} a $normalizedStatus');
       return false;
     }
 
     if (_updatingOrderIds.contains(id)) {
       _setError('El pedido ya está siendo actualizado');
-      print('❌ [PROVIDER] Ya está actualizando: $id');
       return false;
     }
 
     _updatingOrderIds.add(id);
 
-    final originalOrder = currentOrder;
-
+    // Optimistic update
     final updatedOrder = currentOrder.copyWith(status: normalizedStatus);
     _orders[idx] = updatedOrder;
-    _activeOrders = _orders.where((o) =>
-        o.status != 'delivered' && o.status != 'cancelled').toList();
+    _activeOrders = _orders
+        .where((o) => o.status != 'delivered' && o.status != 'cancelled')
+        .toList();
     if (_currentOrder?.id == id) _currentOrder = updatedOrder;
     notifyListeners();
 
     try {
-      print('🔍 [PROVIDER] Llamando a service.updateOrderStatus...');
       final result = await _withNetworkFallback(
-        () => _service.updateOrderStatus(id, normalizedStatus)
-      );
-      print('✅ [PROVIDER] service.updateOrderStatus exitoso');
+          () => _service.updateOrderStatus(id, normalizedStatus));
+
+      if (kDebugMode) AppLogger.debug('OrderProvider: updateOrderStatus exitoso');
 
       final finalIdx = _orders.indexWhere((o) => o.id == id);
       if (finalIdx != -1) _orders[finalIdx] = result;
-      _activeOrders = _orders.where((o) =>
-          o.status != 'delivered' && o.status != 'cancelled').toList();
+      _activeOrders = _orders
+          .where((o) => o.status != 'delivered' && o.status != 'cancelled')
+          .toList();
       if (_currentOrder?.id == id) _currentOrder = result;
       notifyListeners();
 
       return true;
     } catch (e) {
-      print('❌ [PROVIDER] Error en updateOrderStatus: $e');
-      _orders[idx] = originalOrder;
-      _activeOrders = _orders.where((o) =>
-          o.status != 'delivered' && o.status != 'cancelled').toList();
-      if (_currentOrder?.id == id) _currentOrder = originalOrder;
-      final failure = ErrorHandler.handleError(e);
-      _handleFailure(failure);
+      // Revert optimistic update
+      _orders[idx] = currentOrder;
+      _activeOrders = _orders
+          .where((o) => o.status != 'delivered' && o.status != 'cancelled')
+          .toList();
+      if (_currentOrder?.id == id) _currentOrder = currentOrder;
+      _handleFailure(ErrorHandler.handleError(e));
       notifyListeners();
       return false;
     } finally {
@@ -267,9 +254,9 @@ class OrderProvider with ChangeNotifier {
     }
   }
 
-  // ============================================================
+  // ────────────────────────────────────────────────────────────────
   // CANCEL ORDER
-  // ============================================================
+  // ────────────────────────────────────────────────────────────────
   Future<bool> cancelOrder(int id) async {
     if (!_isValidOrderId(id)) {
       _setError('ID de pedido inválido');
@@ -281,24 +268,21 @@ class OrderProvider with ChangeNotifier {
       await fetchOrders();
       return true;
     } catch (e) {
-      final failure = ErrorHandler.handleError(e);
-      _handleFailure(failure);
+      _handleFailure(ErrorHandler.handleError(e));
       return false;
     }
   }
 
-  // ============================================================
+  // ────────────────────────────────────────────────────────────────
   // FILTROS
-  // ============================================================
-  List<Order> getOrdersByStatus(String status) {
-    return _orders.where((o) => o.status == status).toList();
-  }
+  // ────────────────────────────────────────────────────────────────
+  List<Order> getOrdersByStatus(String status) =>
+      _orders.where((o) => o.status == status).toList();
 
-  List<Order> getOrdersByDate(DateTime date) {
-    return _orders.where((o) =>
-        o.createdAt.year == date.year &&
-        o.createdAt.month == date.month &&
-        o.createdAt.day == date.day
-    ).toList();
-  }
+  List<Order> getOrdersByDate(DateTime date) => _orders
+      .where((o) =>
+          o.createdAt.year == date.year &&
+          o.createdAt.month == date.month &&
+          o.createdAt.day == date.day)
+      .toList();
 }

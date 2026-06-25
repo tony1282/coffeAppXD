@@ -306,27 +306,33 @@ class OrderService {
   }
 
   // ============================================================
-  // DELETE /orders/:id
+  // CANCEL ORDER (POST en lugar de DELETE)
   // ============================================================
   Future<void> cancelOrder(int id) async {
     final validId = _validateOrderId(id);
 
     try {
       final headers = await _getSecureHeaders();
+      print('🔍 [SERVICE] Cancelando pedido $validId...');
+      
+      // ✅ CAMBIAR A POST (coincide con el backend)
       final response = await _safeRequest(
-        () => http.delete(
-          Uri.parse('${ApiConfig.baseUrl}/orders/$validId/'),
+        () => http.post(
+          Uri.parse('${ApiConfig.baseUrl}/orders/$validId/cancel'),
           headers: headers,
         ),
-        'DELETE /orders/$validId',
+        'POST /orders/$validId/cancel',
       );
+
+      print('🔍 [SERVICE] Respuesta cancelación: ${response.statusCode}');
 
       if (response.statusCode == 404) {
         return;
       }
 
-      _validateResponse(response, 'DELETE /orders/$validId/');
+      _validateResponse(response, 'POST /orders/$validId/cancel');
     } catch (e) {
+      print('❌ [SERVICE] Error cancelando pedido: $e');
       AppLogger.error('cancelOrder($id)', e);
       rethrow;
     }
