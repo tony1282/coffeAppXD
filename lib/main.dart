@@ -6,7 +6,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-import 'presentation/providers/payment_provider.dart';
 
 import 'firebase_options.dart';
 import 'presentation/screens/auth/login_screen.dart';
@@ -16,26 +15,17 @@ import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/order_provider.dart';
 import 'presentation/providers/product_provider.dart';
 import 'presentation/providers/cart_provider.dart';
+import 'presentation/providers/payment_provider.dart';
 import 'data/models/cart_item_model.dart';
 import 'core/config/constants.dart';
-import 'core/theme/app_theme.dart'; 
+import 'core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Inicializar Hive para persistencia local
   await Hive.initFlutter();
-  
-  // Registrar adaptador (después de ejecutar build_runner)
   Hive.registerAdapter(CartItemModelAdapter());
-  
-  // Abrir la caja del carrito
   await Hive.openBox<CartItemModel>('cart');
-  
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
 
@@ -55,7 +45,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Coffee Shop',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.light(),  // 👈 CAMBIADO: usar tema global
+        theme: AppTheme.light(),
         home: const _AuthGate(),
         routes: {
           '/login':    (_) => const LoginScreen(),
@@ -68,9 +58,28 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Decide a dónde ir al abrir la app según sesión y rol
-class _AuthGate extends StatelessWidget {
+// ✅ FIX: StatefulWidget para mantener el Future estable.
+// Si _AuthGate es StatelessWidget, cada notifyListeners() del AuthProvider
+// reconstruye el widget y crea un nuevo Future → bucle infinito:
+// loadUserModel → notifyListeners → rebuild → loadUserModel → ...
+// Al guardar el Future en estado, solo se ejecuta una vez por sesión.
+class _AuthGate extends StatefulWidget {
   const _AuthGate();
+
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  Future<void>? _loadFuture;
+  String? _lastUid;
+
+  void _triggerLoad(String uid) {
+    // Solo crea un nuevo Future si cambió el usuario
+    if (_lastUid == uid && _loadFuture != null) return;
+    _lastUid = uid;
+    _loadFuture = context.read<AuthProvider>().loadUserModel();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,13 +90,23 @@ class _AuthGate extends StatelessWidget {
           return const _Splash();
         }
 
-        if (!snapshot.hasData) return const LoginScreen();
+        if (!snapshot.hasData || snapshot.data == null) {
+          _loadFuture = null;
+          _lastUid = null;
+          return const LoginScreen();
+        }
 
-        return FutureBuilder(
-          future: context.read<AuthProvider>().loadUserModel(),
+        final uid = snapshot.data!.uid;
+        _triggerLoad(uid);
+
+        return FutureBuilder<void>(
+          future: _loadFuture,
           builder: (context, roleSnap) {
             if (roleSnap.connectionState == ConnectionState.waiting) {
               return const _Splash();
+            }
+            if (roleSnap.hasError) {
+              return const LoginScreen();
             }
             final isAdmin = context.read<AuthProvider>().isAdmin;
             return isAdmin ? const AdminDashboard() : const HomeScreen();
@@ -100,6 +119,7 @@ class _AuthGate extends StatelessWidget {
 
 class _Splash extends StatelessWidget {
   const _Splash();
+
   @override
   Widget build(BuildContext context) => const Scaffold(
         backgroundColor: AppColors.background,

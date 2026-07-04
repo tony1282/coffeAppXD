@@ -1,4 +1,4 @@
-// data/models/payment_model.dart
+// lib/data/models/payment_model.dart
 
 import 'package:flutter/foundation.dart';
 import '../../core/error/error_messages.dart';
@@ -12,8 +12,16 @@ class Payment {
   final String method;
   final String status;
   final DateTime createdAt;
+  
+  // ✅ NUEVOS CAMPOS PARA REEMBOLSO
+  final double? refundedAmount;
+  final DateTime? refundedAt;
+  final String? refundReason;
+  final String? refundId;
 
-  static const List<String> _validStatuses = ['pending', 'completed', 'failed', 'refunded'];
+  static const List<String> _validStatuses = [
+    'pending', 'completed', 'failed', 'refunded', 'partial_refund'
+  ];
   static const List<String> _validMethods = ['card', 'oxxo', 'bank_transfer', 'cash'];
 
   Payment({
@@ -23,7 +31,21 @@ class Payment {
     required this.method,
     required this.status,
     required this.createdAt,
+    this.refundedAmount,
+    this.refundedAt,
+    this.refundReason,
+    this.refundId,
   });
+
+  bool get isRefundable =>
+      status == 'completed' &&
+      (refundedAmount == null || refundedAmount! < amount);
+
+  double get remainingRefundable =>
+      isRefundable ? amount - (refundedAmount ?? 0) : 0;
+
+  bool get isFullyRefunded =>
+      refundedAmount != null && refundedAmount! >= amount;
 
   factory Payment.fromJson(Map<String, dynamic> json) {
     // amount
@@ -38,6 +60,28 @@ class Payment {
     } else {
       if (kDebugMode) AppLogger.debug('Payment: amount inválido');
       throw FormatException(ErrorMessages.invalidResponse);
+    }
+
+    // refunded_amount
+    double? parsedRefundedAmount;
+    final refunded = json['refunded_amount'];
+    if (refunded != null) {
+      if (refunded is int) {
+        parsedRefundedAmount = refunded.toDouble();
+      } else if (refunded is double) {
+        parsedRefundedAmount = refunded;
+      } else if (refunded is String) {
+        parsedRefundedAmount = double.tryParse(refunded);
+      }
+    }
+
+    // refunded_at
+    DateTime? parsedRefundedAt;
+    final refundedAtStr = json['refunded_at'];
+    if (refundedAtStr != null) {
+      try {
+        parsedRefundedAt = DateTime.parse(refundedAtStr.toString());
+      } catch (_) {}
     }
 
     // method
@@ -78,6 +122,10 @@ class Payment {
       method: validMethod,
       status: validStatus,
       createdAt: parsedCreatedAt,
+      refundedAmount: parsedRefundedAmount,
+      refundedAt: parsedRefundedAt,
+      refundReason: json['refund_reason'] as String?,
+      refundId: json['refund_id'] as String?,
     );
   }
 }

@@ -25,6 +25,8 @@ dependencies:
   equatable: ^2.0.8
   flutter_native_splash: ^2.4.7
   crypto: ^3.0.7
+  flutter_custom_tabs: ^2.5.0
+  url_launcher: ^6.3.2
   
 
 

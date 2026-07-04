@@ -27,18 +27,21 @@ class PaymentMethodSheet extends StatefulWidget {
 class _PaymentMethodSheetState extends State<PaymentMethodSheet> {
   String? _selected;
 
+  // ✅ SOLO TARJETA - ELIMINADO EFECTIVO
   static const _methods = [
-    _PaymentMethod(
-      label: 'Efectivo',
-      subtitle: 'Paga al recibir tu pedido',
-      icon: Icons.payments_rounded,
-    ),
     _PaymentMethod(
       label: 'Tarjeta',
       subtitle: 'Visa, Mastercard, Mercado Pago',
       icon: Icons.credit_card_rounded,
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // ✅ Seleccionar tarjeta por defecto
+    _selected = 'Tarjeta';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +86,7 @@ class _PaymentMethodSheetState extends State<PaymentMethodSheet> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Elige cómo quieres pagar tu pedido',
+            'Pago seguro con tarjeta',
             style: AppTextStyles.bodySmall.copyWith(
               color: const Color(0xFF6B7280),
             ),
@@ -240,7 +243,7 @@ class _PaymentMethodSheetState extends State<PaymentMethodSheet> {
                       ),
                     )
                   : Text(
-                      'Confirmar pago',
+                      'Pagar con tarjeta',
                       style: AppTextStyles.labelLarge.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
@@ -248,6 +251,27 @@ class _PaymentMethodSheetState extends State<PaymentMethodSheet> {
                       ),
                     ),
             ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Mensaje de seguridad
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.lock_outline_rounded,
+                color: const Color(0xFF6B7280),
+                size: 16,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Pago seguro con Mercado Pago',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: const Color(0xFF6B7280),
+                ),
+              ),
+            ],
           ),
         ],
       ),

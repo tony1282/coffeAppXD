@@ -9,6 +9,7 @@ import '../../../../data/models/product_model.dart';
 import '../../../../presentation/providers/product_provider.dart';
 import '../../../../presentation/widgets/admin/dashboard_product_admin_tile.dart';
 import '../../../../presentation/widgets/admin/tabs/admin_delete_dialog.dart';
+import '../../../screens/admin/products/admin_product_form.dart'; // ← Importar el formulario
 
 class AdminProductosTab extends StatefulWidget {
   final Future<void> Function() onRefresh;
@@ -49,18 +50,20 @@ class _AdminProductosTabState extends State<AdminProductosTab> {
     }
   }
 
+  // 🔥 MODIFICADO: Ahora navega a AdminProductForm en lugar de mostrar un bottom sheet
   void _showProductForm({ProductModel? product}) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => AdminProductForm(product: product),
+        settings: const RouteSettings(name: 'AdminProductForm'),
       ),
-      builder: (ctx) => _ProductFormSheet(
-        product: product,
-        onSaved: widget.onRefresh,
-      ),
-    );
+    ).then((result) {
+      // Si el resultado es true, refrescar la lista
+      if (result == true && mounted) {
+        widget.onRefresh();
+      }
+    });
   }
 
   @override
@@ -156,7 +159,7 @@ class _AdminProductosTabState extends State<AdminProductosTab> {
             ),
           ),
           GestureDetector(
-            onTap: () => _showProductForm(),
+            onTap: () => _showProductForm(), // ← Ahora llama al mismo método
             child: Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -181,193 +184,6 @@ class _AdminProductosTabState extends State<AdminProductosTab> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ─── Product Form Sheet ───────────────────────────────────────────────────────
-
-class _ProductFormSheet extends StatefulWidget {
-  final ProductModel? product;
-  final Future<void> Function() onSaved;
-
-  const _ProductFormSheet({this.product, required this.onSaved});
-
-  @override
-  State<_ProductFormSheet> createState() => _ProductFormSheetState();
-}
-
-class _ProductFormSheetState extends State<_ProductFormSheet> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _name;
-  late final TextEditingController _description;
-  late final TextEditingController _price;
-  late final TextEditingController _category;
-  late final TextEditingController _imageUrl;
-  late final TextEditingController _stock;
-  late bool _available;
-  bool _isSaving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final p = widget.product;
-    _name = TextEditingController(text: p?.name ?? '');
-    _description = TextEditingController(text: p?.description ?? '');
-    _price = TextEditingController(text: p?.price.toString() ?? '');
-    _category = TextEditingController(text: p?.category ?? '');
-    _imageUrl = TextEditingController(text: p?.imageUrl ?? '');
-    _stock = TextEditingController(text: p?.stock?.toString() ?? '');
-    _available = p?.available ?? true;
-  }
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _description.dispose();
-    _price.dispose();
-    _category.dispose();
-    _imageUrl.dispose();
-    _stock.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _isSaving = true);
-
-    final provider = context.read<ProductProvider>();
-    final p = widget.product;
-    bool success;
-
-    if (p == null) {
-      success = await provider.createProduct(
-        name: _name.text.trim(),
-        description: _description.text.trim(),
-        price: double.parse(_price.text),
-        category: _category.text.trim(),
-        imageUrl: _imageUrl.text.trim(),
-        available: _available,
-        stock: _stock.text.isNotEmpty ? int.tryParse(_stock.text) : null,
-      );
-    } else {
-      success = await provider.updateProduct(
-        id: p.id,
-        name: _name.text.trim(),
-        description: _description.text.trim(),
-        price: double.parse(_price.text),
-        category: _category.text.trim(),
-        imageUrl: _imageUrl.text.trim(),
-        available: _available,
-        stock: _stock.text.isNotEmpty ? int.tryParse(_stock.text) : null,
-      );
-    }
-
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-
-    if (success) {
-      await widget.onSaved();
-      Navigator.pop(context);
-      CustomDialogs.showSuccess(
-        context,
-        p == null ? 'Producto creado' : 'Producto actualizado',
-      );
-    } else {
-      CustomDialogs.showError(
-          context, provider.errorMsg ?? 'Error al guardar');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isEdit = widget.product != null;
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isEdit ? 'Editar producto' : 'Nuevo producto',
-                style: AppTextStyles.titleMedium
-                    .copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 16),
-              _field(_name, 'Nombre', required: true),
-              _field(_description, 'Descripción'),
-              _field(_price, 'Precio', keyboardType: TextInputType.number,
-                  required: true, validator: (v) {
-                if (double.tryParse(v ?? '') == null) return 'Precio inválido';
-                return null;
-              }),
-              _field(_category, 'Categoría', required: true),
-              _field(_imageUrl, 'URL de imagen'),
-              _field(_stock, 'Stock', keyboardType: TextInputType.number),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Disponible'),
-                value: _available,
-                activeColor: AppColors.primary,
-                onChanged: (v) => setState(() => _available = v),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isSaving ? null : _save,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: _isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : Text(isEdit ? 'Guardar cambios' : 'Crear producto'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _field(
-    TextEditingController controller,
-    String label, {
-    TextInputType? keyboardType,
-    bool required = false,
-    String? Function(String?)? validator,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          labelText: label,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        ),
-        validator: validator ??
-            (required
-                ? (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null
-                : null),
       ),
     );
   }

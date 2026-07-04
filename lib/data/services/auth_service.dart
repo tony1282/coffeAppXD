@@ -111,7 +111,11 @@ class AuthService {
     }
 
     try {
-      await syncUserWithBackend();
+      await syncUserWithBackend(
+        name: user.displayName ?? '',
+        email: user.email ?? '',
+        photoUrl: user.photoURL ?? '',
+      );
     } catch (e) {
       _logSecure('signInWithGoogle', 'backend sync failed — non-blocking');
     }
@@ -162,7 +166,11 @@ class AuthService {
       }
 
       try {
-        await syncUserWithBackend();
+        await syncUserWithBackend(
+          name: user.displayName ?? '',
+          email: user.email ?? '',
+          photoUrl: user.photoURL ?? '',
+        );
       } catch (e) {
         _logSecure('signInWithEmail', 'backend sync failed — non-blocking');
       }
@@ -208,6 +216,10 @@ class AuthService {
         throw AuthException(ErrorMessages.accountIncomplete);
       }
 
+      // ✅ ACTUALIZAR NOMBRE EN FIREBASE AUTH
+      await user.updateDisplayName(name.trim());
+      await user.reload();
+
       final userData = {
         'userId': user.uid,
         'userName': name.trim(),
@@ -222,7 +234,11 @@ class AuthService {
       await _db.collection('users').doc(user.uid).set(userData);
 
       try {
-        await syncUserWithBackend();
+        await syncUserWithBackend(
+          name: name.trim(),
+          email: email.trim(),
+          photoUrl: '',
+        );
       } catch (e) {
         _logSecure('registerWithEmail', 'backend sync failed — non-blocking');
       }
@@ -272,9 +288,13 @@ class AuthService {
   }
 
   // ============================================================
-  // SYNC BACKEND
+  // SYNC BACKEND (AHORA ENVÍA NOMBRE Y EMAIL)
   // ============================================================
-  Future<void> syncUserWithBackend() async {
+  Future<void> syncUserWithBackend({
+    String? name,
+    String? email,
+    String? photoUrl,
+  }) async {
     final user = _auth.currentUser;
     if (user == null || user.uid.isEmpty) return;
 
@@ -290,9 +310,16 @@ class AuthService {
     }
 
     try {
-      await _api.post('/auth/firebase/', {'id_token': idToken});
+      // ✅ ENVIAR NOMBRE Y EMAIL EN EL BODY
+      await _api.post('/auth/firebase/', {
+        'id_token': idToken,
+        'name': name ?? user.displayName ?? '',
+        'email': email ?? user.email ?? '',
+        'photo_url': photoUrl ?? user.photoURL ?? '',
+      });
     } catch (e) {
       _logSecure('syncUserWithBackend', 'API error: ${e.runtimeType}');
+      rethrow;
     }
   }
 

@@ -1,8 +1,11 @@
 // lib/presentation/widgets/order/order_detail_bottom_sheet.dart
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/config/constants.dart';
 import '../../../core/theme/text_styles.dart';
+import '../../../core/ui/custom_dialogs.dart';
+import '../../../presentation/providers/order_provider.dart';
 import 'order_status_badge.dart';
 import 'order_item_row.dart';
 import 'order_progress_steps.dart';
@@ -15,11 +18,52 @@ class OrderDetailBottomSheet extends StatelessWidget {
     required this.order,
   });
 
+  // ✅ VERIFICAR SI EL PEDIDO ES CANCELABLE POR EL CLIENTE
+  bool _isCancellable(String status) {
+    return status == 'pending' || status == 'confirmed';
+  }
+
+  // ✅ FUNCIÓN PARA CANCELAR PEDIDO (CON REEMBOLSO AUTOMÁTICO)
+  Future<void> _cancelOrder(BuildContext context) async {
+    final orderId = order.id as int?;
+    if (orderId == null) return;
+
+    final confirmed = await CustomDialogs.showConfirm(
+      context: context,
+      title: 'Cancelar pedido',
+      message: '¿Estás seguro de cancelar el pedido #$orderId?\n\n'
+               '⚠️ Si ya pagaste con tarjeta, se procesará un reembolso automático.',
+      confirmText: 'Cancelar pedido',
+      cancelText: 'No cancelar',
+      confirmColor: AppColors.error,
+    );
+
+    if (confirmed != true) return;
+    if (!context.mounted) return;
+
+    final provider = context.read<OrderProvider>();
+    final success = await provider.cancelOrder(orderId);
+
+    if (!context.mounted) return;
+
+    if (success) {
+      CustomDialogs.showSuccess(context, 'Pedido #$orderId cancelado');
+      Navigator.pop(context); // Cerrar el bottom sheet
+    } else {
+      CustomDialogs.showError(
+        context, 
+        provider.errorMsg ?? 'Error al cancelar el pedido'
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = order.items ?? [];
     final double subtotal = order.total / 1.08;
     final double tax = order.total - subtotal;
+    final status = order.status as String;
+    final isCancellable = _isCancellable(status);
 
     return Container(
       constraints: BoxConstraints(
@@ -76,13 +120,13 @@ class OrderDetailBottomSheet extends StatelessWidget {
                     ),
                   ),
                 ),
-                OrderStatusBadge(status: order.status as String),
+                OrderStatusBadge(status: status),
               ],
             ),
           ),
 
           // ── Progress steps ──
-          OrderProgressSteps(status: order.status as String),
+          OrderProgressSteps(status: status),
 
           const SizedBox(height: 4),
 
@@ -324,6 +368,106 @@ class OrderDetailBottomSheet extends StatelessWidget {
                         ),
                       ),
                     ),
+
+                  // ✅ BOTÓN DE CANCELAR PARA CLIENTE (SOLO SI ES CANCELABLE)
+                  if (isCancellable) ...[
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _cancelOrder(context),
+                              icon: const Icon(Icons.cancel_outlined, size: 20),
+                              label: const Text(
+                                'Cancelar pedido',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.error,
+                                side: BorderSide(
+                                  color: AppColors.error.withOpacity(0.5),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Colors.orange.withOpacity(0.2),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Colors.orange,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Si ya pagaste con tarjeta, se procesará un reembolso automático',
+                                    style: AppTextStyles.labelSmall.copyWith(
+                                      color: Colors.orange[700],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // ✅ Mensaje si ya fue cancelado
+                  if (status == 'cancelled') ...[
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.error.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              color: AppColors.error,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Este pedido fue cancelado',
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.error,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 28),
                 ],

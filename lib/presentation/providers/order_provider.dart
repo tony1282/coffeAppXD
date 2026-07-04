@@ -1,6 +1,7 @@
 // lib/presentation/providers/order_provider.dart
 
 import 'dart:async';
+import 'package:coffe_app/data/services/refound_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../core/error/error_handler.dart';
@@ -12,6 +13,7 @@ import '../../data/services/order_service.dart';
 
 class OrderProvider with ChangeNotifier {
   final OrderService _service = OrderService();
+  final RefundService _refundService = RefundService();
 
   static const int _maxOrders = 2000;
   static const Duration _requestTimeout = Duration(seconds: 20);
@@ -110,8 +112,6 @@ class OrderProvider with ChangeNotifier {
 
   // ────────────────────────────────────────────────────────────────
   // FETCH ORDER BY ID
-  // ✅ FIX: también actualiza _orders para que updateOrderStatus
-  // siga encontrando el pedido después de un fetchOrderById
   // ────────────────────────────────────────────────────────────────
   Future<void> fetchOrderById(int id) async {
     if (!_isValidOrderId(id)) {
@@ -124,16 +124,12 @@ class OrderProvider with ChangeNotifier {
     try {
       final fresh = await _withNetworkFallback(() => _service.getOrderById(id));
 
-      // Actualizar _currentOrder
       _currentOrder = fresh;
 
-      // ✅ FIX: sincronizar también en _orders
       final idx = _orders.indexWhere((o) => o.id == id);
       if (idx != -1) {
         _orders[idx] = fresh;
       } else {
-        // Si no estaba en la lista (ej. admin abrió pedido de otro usuario)
-        // lo insertamos al inicio
         _orders.insert(0, fresh);
       }
 
@@ -176,7 +172,7 @@ class OrderProvider with ChangeNotifier {
   }
 
   // ────────────────────────────────────────────────────────────────
-  // UPDATE ORDER STATUS
+  // UPDATE ORDER STATUS (CON REEMBOLSO AUTOMÁTICO AL CANCELAR)
   // ────────────────────────────────────────────────────────────────
   Future<bool> updateOrderStatus(int id, String status) async {
     _clearError();
@@ -214,6 +210,11 @@ class OrderProvider with ChangeNotifier {
     }
 
     _updatingOrderIds.add(id);
+
+    // ✅ Si se está cancelando, procesar reembolso automático
+    if (normalizedStatus == 'cancelled') {
+      await _processRefundForOrder(currentOrder);
+    }
 
     // Optimistic update
     final updatedOrder = currentOrder.copyWith(status: normalizedStatus);
@@ -255,7 +256,7 @@ class OrderProvider with ChangeNotifier {
   }
 
   // ────────────────────────────────────────────────────────────────
-  // CANCEL ORDER
+  // CANCEL ORDER (CON REEMBOLSO AUTOMÁTICO)
   // ────────────────────────────────────────────────────────────────
   Future<bool> cancelOrder(int id) async {
     if (!_isValidOrderId(id)) {
@@ -264,12 +265,92 @@ class OrderProvider with ChangeNotifier {
     }
 
     try {
+      // ✅ Obtener el pedido antes de cancelar para verificar pago
+      final order = await _withNetworkFallback(() => _service.getOrderById(id));
+      
+      // ✅ Procesar reembolso si aplica
+      await _processRefundForOrder(order);
+      
+      // ✅ Cancelar en el backend
       await _withNetworkFallback(() => _service.cancelOrder(id));
+      
       await fetchOrders();
       return true;
     } catch (e) {
       _handleFailure(ErrorHandler.handleError(e));
       return false;
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // PROCESAR REEMBOLSO DE PEDIDO (PRIVADO) - CORREGIDO
+  // ────────────────────────────────────────────────────────────────
+  Future<void> _processRefundForOrder(Order order) async {
+    // Solo procesar si es pago con tarjeta y está completado
+    if (order.paymentMethod != 'card' || order.paymentStatus != 'completed') {
+      if (kDebugMode) {
+        AppLogger.debug('OrderProvider: No se procesa reembolso - '
+            'paymentMethod: ${order.paymentMethod}, '
+            'paymentStatus: ${order.paymentStatus}');
+      }
+      return;
+    }
+
+    try {
+      // ⭐ PRIORIDAD 1: Usar mp_payment_id si existe
+      if (order.mpPaymentId != null && order.mpPaymentId!.isNotEmpty) {
+        AppLogger.debug('OrderProvider: Usando mp_payment_id guardado: ${order.mpPaymentId}');
+        
+        await _refundService.requestRefund(
+          paymentId: int.parse(order.mpPaymentId!),
+          amount: order.total,
+          reason: 'Cancelación de pedido #${order.id}',
+        );
+        
+        AppLogger.debug('OrderProvider: ✅ Reembolso procesado con mp_payment_id');
+        return;
+      }
+      
+      // ⭐ PRIORIDAD 2: Fallback - obtener de la API
+      AppLogger.debug('OrderProvider: mp_payment_id no disponible, buscando en API');
+      
+      final payments = await _refundService.getPaymentsByOrder(order.id!);
+      
+      final payment = payments.firstWhere(
+        (p) => p.status == 'completed',
+        orElse: () => throw Exception('No se encontró pago completado'),
+      );
+
+      if (payment.refundedAmount != null && payment.refundedAmount! > 0) {
+        AppLogger.debug('OrderProvider: El pago ya tiene reembolso');
+        return;
+      }
+
+      await _refundService.requestRefund(
+        paymentId: payment.id!,
+        amount: payment.amount,
+        reason: 'Cancelación de pedido #${order.id}',
+      );
+
+      AppLogger.debug('OrderProvider: ✅ Reembolso procesado para pedido #${order.id}');
+      
+    } catch (e) {
+      // No fallar la cancelación si el reembolso falla
+      AppLogger.error('OrderProvider: ⚠️ Error procesando reembolso', e);
+      // Podrías agregar aquí una notificación al admin
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // GET ORDER PAYMENT STATUS
+  // ────────────────────────────────────────────────────────────────
+  Future<String?> getOrderPaymentStatus(int id) async {
+    try {
+      final order = await _withNetworkFallback(() => _service.getOrderById(id));
+      return order.paymentStatus;
+    } catch (e) {
+      if (kDebugMode) AppLogger.error('OrderProvider: getOrderPaymentStatus($id): $e');
+      return null;
     }
   }
 

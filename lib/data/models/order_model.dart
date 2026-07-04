@@ -1,4 +1,4 @@
-// data/models/order_model.dart
+// lib/data/models/order_model.dart
 
 import 'package:flutter/foundation.dart';
 import '../../core/error/error_messages.dart';
@@ -20,6 +20,9 @@ class Order {
   final double? deliveryLat;
   final double? deliveryLng;
   final String? notes;
+  
+  // ⭐ NUEVO: mp_payment_id para reembolsos
+  final String? mpPaymentId;
 
   static const double _minValidTotal = 1.0;
   static const double _maxValidTotal = 100000.0;
@@ -48,6 +51,7 @@ class Order {
     this.deliveryLat,
     this.deliveryLng,
     this.notes,
+    this.mpPaymentId,  // ← NUEVO
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -179,6 +183,9 @@ class Order {
       }
     }
 
+    // ⭐ NUEVO: mp_payment_id
+    final mpPaymentId = json['mp_payment_id']?.toString();
+
     return Order(
       id: parsedId,
       userId: userId,
@@ -194,6 +201,7 @@ class Order {
       deliveryLat: parsedLat,
       deliveryLng: parsedLng,
       notes: json['notes']?.toString(),
+      mpPaymentId: mpPaymentId,  // ← NUEVO
     );
   }
 
@@ -212,6 +220,7 @@ class Order {
     double? deliveryLat,
     double? deliveryLng,
     String? notes,
+    String? mpPaymentId,  // ← NUEVO
   }) {
     return Order(
       id: id ?? this.id,
@@ -228,6 +237,7 @@ class Order {
       deliveryLat: deliveryLat ?? this.deliveryLat,
       deliveryLng: deliveryLng ?? this.deliveryLng,
       notes: notes ?? this.notes,
+      mpPaymentId: mpPaymentId ?? this.mpPaymentId,  // ← NUEVO
     );
   }
 
