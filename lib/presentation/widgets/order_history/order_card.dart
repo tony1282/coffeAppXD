@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../../../core/config/constants.dart';
+import '../../../core/config/order_status_config.dart';
 import '../../../core/theme/text_styles.dart';
 import 'order_status_badge.dart';
 
@@ -42,6 +43,11 @@ class OrderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final itemCount = order.items?.length ?? 0;
     final accent = _accentColor(order.status as String);
+    
+    // ✅ Obtener estado del pago
+    final paymentStatus = order.paymentStatus as String? ?? 'pending';
+    final pColor = OrderStatusConfig.paymentColors[paymentStatus] ?? AppColors.textGrey;
+    final pLabel = OrderStatusConfig.paymentLabels[paymentStatus] ?? 'Pendiente';
 
     return Material(
       color: AppColors.card,
@@ -116,11 +122,44 @@ class OrderCard extends StatelessWidget {
                             ],
                           ),
 
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
+                          // ✅ Payment status badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: pColor.withOpacity(0.10),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: pColor.withOpacity(0.20),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  OrderStatusConfig.paymentIcons[paymentStatus] ?? Icons.payment_rounded,
+                                  color: pColor,
+                                  size: 12,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  pLabel,
+                                  style: TextStyle(
+                                    color: pColor,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 10),
                           Divider(
                               height: 1,
                               color: const Color(0xFFE5E7EB)),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 10),
 
                           // Body row
                           Row(

@@ -103,7 +103,7 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
     // ✅ FIX: guardar todo lo necesario ANTES de cualquier await
     final orderId = order.id!;
     final nextStatus = OrderStatusConfig.flow[currentIdx + 1];
-    final nextLabel = OrderStatusConfig.labels[nextStatus] ?? nextStatus;
+    final nextLabel = OrderStatusConfig.adminLabels[nextStatus] ?? nextStatus;
 
     final confirmed = await CustomDialogs.showConfirm(
       context: context,
@@ -235,7 +235,7 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
 
   Widget _buildAdvanceButton(int statusIdx) {
     final nextStatus = OrderStatusConfig.flow[statusIdx + 1];
-    final nextLabel = OrderStatusConfig.labels[nextStatus] ?? nextStatus;
+    final nextLabel = OrderStatusConfig.adminLabels[nextStatus] ?? nextStatus;
     final color = OrderStatusConfig.colors[nextStatus] ?? AppColors.primary;
 
     return Container(

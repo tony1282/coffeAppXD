@@ -111,7 +111,7 @@ class OrderDetailStatusStepper extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      OrderStatusConfig.labels[OrderStatusConfig.flow[stepIdx]] ?? '',
+                      OrderStatusConfig.clientLabels[OrderStatusConfig.flow[stepIdx]] ?? '',
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: active ? FontWeight.w700 : FontWeight.w500,

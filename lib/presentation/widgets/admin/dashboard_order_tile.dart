@@ -147,8 +147,8 @@ class DashboardOrderTile extends StatelessWidget {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              OrderStatusConfig.labels[normalizedStatus] ??
-                                  order.status,
+        OrderStatusConfig.clientLabels[normalizedStatus] ??
+                  order.status,
                               style: TextStyle(
                                 color: color,
                                 fontSize: 11,

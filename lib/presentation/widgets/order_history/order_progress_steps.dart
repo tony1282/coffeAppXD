@@ -1,32 +1,16 @@
 // lib/presentation/widgets/order/order_progress_steps.dart
-//
-// NUEVO WIDGET — agrégalo a tu proyecto.
-// Muestra el progreso del pedido como pasos conectados.
-// Uso: OrderProgressSteps(status: order.status)
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/config/constants.dart';
+import '../../../core/config/order_status_config.dart';
 import '../../../core/theme/text_styles.dart';
-
-class _Step {
-  final String label;
-  final String emoji;
-  final String statusKey;
-  const _Step(
-      {required this.label, required this.emoji, required this.statusKey});
-}
+import '../../../presentation/providers/auth_provider.dart';
 
 class OrderProgressSteps extends StatelessWidget {
   final String status;
 
   const OrderProgressSteps({super.key, required this.status});
-
-  static const _steps = [
-    _Step(label: 'Recibido', emoji: '📋', statusKey: 'pending'),
-    _Step(label: 'Confirmado', emoji: '✅', statusKey: 'confirmed'),
-    _Step(label: 'Preparando', emoji: '☕', statusKey: 'preparing'),
-    _Step(label: 'En camino', emoji: '🚴', statusKey: 'shipped'),
-  ];
 
   int get _activeIndex {
     switch (status) {
@@ -39,7 +23,7 @@ class OrderProgressSteps extends StatelessWidget {
       case 'shipped':
         return 3;
       case 'delivered':
-        return 3;
+        return 4;
       default:
         return 0;
     }
@@ -47,17 +31,23 @@ class OrderProgressSteps extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAdmin = context.watch<AuthProvider>().isAdmin;
+    
+    // ✅ Elegir los pasos correctos según el rol
+    final steps = isAdmin
+        ? OrderStatusConfig.adminStepper
+        : OrderStatusConfig.clientStepper;
+
     final active = _activeIndex;
     final isCancelled = status == 'cancelled';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
       child: Row(
-        children: List.generate(_steps.length, (i) {
-          final step = _steps[i];
+        children: List.generate(steps.length, (i) {
           final isDone = !isCancelled && i < active;
           final isActive = !isCancelled && i == active;
-          final isLast = i == _steps.length - 1;
+          final isLast = i == steps.length - 1;
 
           Color dotBg;
           Color dotFg;
@@ -90,7 +80,6 @@ class OrderProgressSteps extends StatelessWidget {
                       Stack(
                         alignment: Alignment.center,
                         children: [
-                          // connector line to the right
                           if (!isLast)
                             Align(
                               alignment: Alignment.centerRight,
@@ -102,7 +91,6 @@ class OrderProgressSteps extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          // connector line to the left
                           if (i > 0)
                             Align(
                               alignment: Alignment.centerLeft,
@@ -116,7 +104,6 @@ class OrderProgressSteps extends StatelessWidget {
                                 ),
                               ),
                             ),
-                          // dot
                           Container(
                             width: 30,
                             height: 30,
@@ -129,7 +116,7 @@ class OrderProgressSteps extends StatelessWidget {
                                   ? const Icon(Icons.check,
                                       color: Colors.white, size: 15)
                                   : Text(
-                                      step.emoji,
+                                      _getEmoji(i),
                                       style: TextStyle(
                                         fontSize: isActive ? 14 : 12,
                                       ),
@@ -140,7 +127,7 @@ class OrderProgressSteps extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        step.label,
+                        steps[i],
                         style: AppTextStyles.labelSmall.copyWith(
                           color: isActive
                               ? AppColors.primary
@@ -162,5 +149,10 @@ class OrderProgressSteps extends StatelessWidget {
         }),
       ),
     );
+  }
+
+  String _getEmoji(int index) {
+    const emojis = ['📋', '✅', '☕', '🚴', '🏠'];
+    return emojis[index];
   }
 }

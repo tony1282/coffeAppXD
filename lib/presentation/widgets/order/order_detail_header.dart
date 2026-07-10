@@ -85,7 +85,7 @@ class OrderDetailHeader extends StatelessWidget {
             border: Border.all(color: statusColor.withOpacity(0.30)),
           ),
           child: Text(
-            OrderStatusConfig.labels[order.status] ?? order.status,
+            OrderStatusConfig.clientLabels[order.status] ?? order.status,
             style: TextStyle(
                 color: statusColor,
                 fontSize: 10,

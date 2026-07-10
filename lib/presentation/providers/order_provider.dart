@@ -1,6 +1,7 @@
 // lib/presentation/providers/order_provider.dart
 
 import 'dart:async';
+import 'package:coffe_app/data/services/oder_realtime_service.dart';
 import 'package:coffe_app/data/services/refound_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -101,6 +102,10 @@ class OrderProvider with ChangeNotifier {
           .toList();
 
       notifyListeners();
+
+      // ⭐ Inicializar WebSocket después de cargar pedidos
+      _initRealtimeUpdates();
+
     } catch (e) {
       _handleFailure(ErrorHandler.handleError(e));
       if (kDebugMode) AppLogger.error('OrderProvider: Error en fetchOrders: $e');
@@ -366,4 +371,41 @@ class OrderProvider with ChangeNotifier {
           o.createdAt.month == date.month &&
           o.createdAt.day == date.day)
       .toList();
+
+  // ────────────────────────────────────────────────────────────────
+  // WEBSOCKET - ACTUALIZACIONES EN TIEMPO REAL
+  // ────────────────────────────────────────────────────────────────
+  void _initRealtimeUpdates() {
+    OrderRealtimeService.instance.onOrderUpdated = (orderJson) {
+      try {
+        final updatedOrder = Order.fromJson(orderJson);
+        
+        // Actualizar en la lista
+        final index = _orders.indexWhere((o) => o.id == updatedOrder.id);
+        if (index != -1) {
+          _orders[index] = updatedOrder;
+          
+          // Actualizar activeOrders
+          _activeOrders = _orders
+              .where((o) => o.status != 'delivered' && o.status != 'cancelled')
+              .toList();
+          
+          // Actualizar currentOrder si es el mismo
+          if (_currentOrder?.id == updatedOrder.id) {
+            _currentOrder = updatedOrder;
+          }
+          
+          notifyListeners();
+          
+          if (kDebugMode) {
+            AppLogger.debug('OrderProvider: 📦 Pedido #${updatedOrder.id} actualizado en tiempo real');
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          AppLogger.error('OrderProvider: Error procesando actualización en tiempo real', e);
+        }
+      }
+    };
+  }
 }

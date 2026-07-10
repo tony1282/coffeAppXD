@@ -1,5 +1,6 @@
 // lib/presentation/widgets/order/order_detail_bottom_sheet.dart
 
+import 'package:coffe_app/data/models/order_model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/config/constants.dart';
@@ -11,11 +12,11 @@ import 'order_item_row.dart';
 import 'order_progress_steps.dart';
 
 class OrderDetailBottomSheet extends StatelessWidget {
-  final dynamic order;
+  final int orderId;  // ← 🔥 CAMBIO: Recibir ID en lugar de todo el order
 
   const OrderDetailBottomSheet({
     super.key,
-    required this.order,
+    required this.orderId,
   });
 
   // ✅ VERIFICAR SI EL PEDIDO ES CANCELABLE POR EL CLIENTE
@@ -24,10 +25,7 @@ class OrderDetailBottomSheet extends StatelessWidget {
   }
 
   // ✅ FUNCIÓN PARA CANCELAR PEDIDO (CON REEMBOLSO AUTOMÁTICO)
-  Future<void> _cancelOrder(BuildContext context) async {
-    final orderId = order.id as int?;
-    if (orderId == null) return;
-
+  Future<void> _cancelOrder(BuildContext context, int orderId) async {
     final confirmed = await CustomDialogs.showConfirm(
       context: context,
       title: 'Cancelar pedido',
@@ -59,6 +57,28 @@ class OrderDetailBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 🔥 NUEVO: ESCUCHAR CAMBIOS EN EL PROVIDER
+    return Consumer<OrderProvider>(
+      builder: (context, orderProvider, _) {
+        // Buscar el pedido actualizado por ID
+        final order = orderProvider.orders.cast<Order?>().firstWhere(
+          (o) => o?.id == orderId,
+          orElse: () => null,
+        );
+
+        // Si no hay pedido, mostrar loading
+        if (order == null) {
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          );
+        }
+
+        return _buildContent(context, order);
+      },
+    );
+  }
+
+  Widget _buildContent(BuildContext context, dynamic order) {
     final items = order.items ?? [];
     final double subtotal = order.total / 1.08;
     final double tax = order.total - subtotal;
@@ -380,7 +400,7 @@ class OrderDetailBottomSheet extends StatelessWidget {
                             width: double.infinity,
                             height: 50,
                             child: OutlinedButton.icon(
-                              onPressed: () => _cancelOrder(context),
+                              onPressed: () => _cancelOrder(context, order.id),
                               icon: const Icon(Icons.cancel_outlined, size: 20),
                               label: const Text(
                                 'Cancelar pedido',

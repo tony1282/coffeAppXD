@@ -74,7 +74,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => OrderDetailBottomSheet(order: order),
+      builder: (context) => OrderDetailBottomSheet(orderId: order.id),
     );
   }
 

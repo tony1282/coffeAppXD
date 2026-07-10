@@ -1,5 +1,6 @@
 // lib/main.dart
 
+import 'package:coffe_app/data/services/oder_realtime_service.dart';
 import 'package:coffe_app/presentation/screens/auth/register_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -82,6 +83,13 @@ class _AuthGateState extends State<_AuthGate> {
   }
 
   @override
+  void dispose() {
+    // 🔥 Desconectar WebSocket al cerrar la app
+    OrderRealtimeService.instance.disconnect();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
@@ -93,6 +101,8 @@ class _AuthGateState extends State<_AuthGate> {
         if (!snapshot.hasData || snapshot.data == null) {
           _loadFuture = null;
           _lastUid = null;
+          // 🔥 Desconectar WebSocket si el usuario cierra sesión
+          OrderRealtimeService.instance.disconnect();
           return const LoginScreen();
         }
 
@@ -108,6 +118,12 @@ class _AuthGateState extends State<_AuthGate> {
             if (roleSnap.hasError) {
               return const LoginScreen();
             }
+            
+            // 🔥 Conectar WebSocket SOLO si el usuario está autenticado
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              OrderRealtimeService.instance.connect();
+            });
+            
             final isAdmin = context.read<AuthProvider>().isAdmin;
             return isAdmin ? const AdminDashboard() : const HomeScreen();
           },
