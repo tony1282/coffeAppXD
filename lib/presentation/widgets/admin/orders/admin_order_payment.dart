@@ -1,4 +1,4 @@
-// lib/presentation/screens/admin/orders/widgets/admin_order_payment.dart
+// lib/presentation/widgets/admin/orders/admin_order_payment.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,12 +8,15 @@ import '../../../../../core/theme/text_styles.dart';
 import '../../../../../data/models/order_model.dart';
 import '../../../../../data/models/payment_model.dart';
 import '../../../../../presentation/providers/payment_provider.dart';
-import '../../../../../presentation/widgets/admin/orders/admin_refund_status.dart'; // ✅ NUEVO
+import '../../../../../presentation/widgets/admin/orders/admin_refund_status.dart';
 
 class AdminOrderPayment extends StatelessWidget {
-  final dynamic order;
+  final Order order;  // ← 🔥 CAMBIADO: usar Order en lugar de dynamic
 
-  const AdminOrderPayment({super.key, required this.order});
+  const AdminOrderPayment({
+    super.key, 
+    required this.order,
+  });
 
   double _toDouble(dynamic value) {
     if (value == null) return 0.0;
@@ -28,22 +31,36 @@ class AdminOrderPayment extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<PaymentProvider>(
       builder: (context, paymentProvider, _) {
+        // 🔍 DEBUG: ver qué está pasando
+        print('🔍 [PAYMENT] order.id: ${order.id}');
+        print('🔍 [PAYMENT] order.paymentStatus: ${order.paymentStatus}');
+        print('🔍 [PAYMENT] paymentProvider.payments: ${paymentProvider.payments.length}');
+
         // Buscar el pago asociado a esta orden
         final payment = paymentProvider.payments.firstWhere(
           (p) => p.orderId == order.id?.toString(),
-          orElse: () => Payment(
-            id: null,
-            orderId: order.id?.toString(),
-            amount: _toDouble(order.total ?? 0),
-            method: order.paymentMethod ?? 'cash',
-            status: order.paymentStatus ?? 'pending',
-            createdAt: DateTime.now(),
-          ),
+          orElse: () {
+            print('⚠️ [PAYMENT] No se encontró pago para orden ${order.id}, usando fallback');
+            return Payment(
+              id: null,
+              orderId: order.id?.toString(),
+              amount: _toDouble(order.total ?? 0),
+              method: order.paymentMethod ?? 'cash',
+              status: order.paymentStatus ?? 'pending',  // ← Usa el payment_status real
+              createdAt: DateTime.now(),
+            );
+          },
         );
 
-        final pColor = OrderStatusConfig.paymentColors[order.paymentStatus] ?? AppColors.textGrey;
-        final pLabel = OrderStatusConfig.paymentLabels[order.paymentStatus] ?? 'Pendiente';
-        final pIcon = OrderStatusConfig.paymentIcons[order.paymentStatus] ?? Icons.payment_rounded;
+        // ⭐ USAR EL payment.status REAL (no el order.paymentStatus)
+        final paymentStatus = payment.status;  // ← 🔥 ESTO ES LO IMPORTANTE
+        
+        final pColor = OrderStatusConfig.paymentColors[paymentStatus] ?? AppColors.textGrey;
+        final pLabel = OrderStatusConfig.paymentLabels[paymentStatus] ?? 'Pendiente';
+        final pIcon = OrderStatusConfig.paymentIcons[paymentStatus] ?? Icons.payment_rounded;
+
+        print('🔍 [PAYMENT] paymentStatus: $paymentStatus');
+        print('🔍 [PAYMENT] pLabel: $pLabel');
 
         // Calcular subtotal
         double subtotal = 0.0;
@@ -86,12 +103,20 @@ class AdminOrderPayment extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Método: ${order.paymentMethod ?? 'No especificado'}',
+                          'Método: ${payment.method.isNotEmpty ? payment.method : (order.paymentMethod ?? 'No especificado')}',
                           style: TextStyle(
                             color: pColor.withOpacity(0.7),
                             fontSize: 10,
                           ),
                         ),
+                        if (payment.id != null)
+                          Text(
+                            'ID pago: ${payment.id}',
+                            style: TextStyle(
+                              color: pColor.withOpacity(0.5),
+                              fontSize: 9,
+                            ),
+                          ),
                       ],
                     ),
                   ),

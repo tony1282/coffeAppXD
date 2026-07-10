@@ -103,23 +103,65 @@ class OrderStatusConfig {
   ];
 
   // ============================================================
-  // PAGOS
+  // ✅ PAGOS - COMPLETO (todos los estados)
   // ============================================================
   static const Map<String, Color> paymentColors = {
-    'pagado':   AppColors.success,
+    // ✅ ESTADOS DEL BACKEND
+    'pending': AppColors.warning,
+    'paid': AppColors.success,
+    'completed': AppColors.success,
+    'refunded': AppColors.error,
+    'partial_refund': AppColors.warning,
+    'failed': AppColors.error,
+    'in_process': AppColors.warning,  // ← AGREGADO
+    'rejected': AppColors.error,      // ← AGREGADO
+    'cancelled': AppColors.error,     // ← AGREGADO
+    'charged_back': AppColors.error,  // ← AGREGADO
+    'voided': AppColors.error,        // ← AGREGADO
+    
+    // ⚠️ VALORES LEGACY (español) - para compatibilidad
+    'pagado': AppColors.success,
     'pendiente': AppColors.warning,
-    'fallido':  AppColors.error,
+    'fallido': AppColors.error,
   };
 
   static const Map<String, String> paymentLabels = {
-    'pagado':   'Pago confirmado',
+    // ✅ ESTADOS DEL BACKEND
+    'pending': 'Pago pendiente',
+    'paid': 'Pago completado',
+    'completed': 'Pago completado',
+    'refunded': 'Pago reembolsado',
+    'partial_refund': 'Reembolso parcial',
+    'failed': 'Pago fallido',
+    'in_process': 'Pago en proceso',   // ← AGREGADO
+    'rejected': 'Pago rechazado',      // ← AGREGADO
+    'cancelled': 'Pago cancelado',     // ← AGREGADO
+    'charged_back': 'Contracargo',     // ← AGREGADO
+    'voided': 'Pago anulado',          // ← AGREGADO
+    
+    // ⚠️ VALORES LEGACY (español) - para compatibilidad
+    'pagado': 'Pago confirmado',
     'pendiente': 'Pago pendiente',
-    'fallido':  'Pago fallido',
+    'fallido': 'Pago fallido',
   };
 
   static const Map<String, IconData> paymentIcons = {
-    'pagado':   Icons.check_circle_rounded,
+    // ✅ ESTADOS DEL BACKEND
+    'pending': Icons.schedule_rounded,
+    'paid': Icons.check_circle_rounded,
+    'completed': Icons.check_circle_rounded,
+    'refunded': Icons.currency_exchange_rounded,
+    'partial_refund': Icons.currency_exchange_rounded,
+    'failed': Icons.cancel_rounded,
+    'in_process': Icons.hourglass_top_rounded,    // ← AGREGADO
+    'rejected': Icons.block_rounded,              // ← AGREGADO
+    'cancelled': Icons.cancel_rounded,            // ← AGREGADO
+    'charged_back': Icons.report_problem_rounded, // ← AGREGADO
+    'voided': Icons.remove_circle_rounded,        // ← AGREGADO
+    
+    // ⚠️ VALORES LEGACY (español) - para compatibilidad
+    'pagado': Icons.check_circle_rounded,
     'pendiente': Icons.schedule_rounded,
-    'fallido':  Icons.cancel_rounded,
+    'fallido': Icons.cancel_rounded,
   };
 }

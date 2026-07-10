@@ -120,7 +120,7 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   // ────────────────────────────────────────────────────────────────
-  // 🔥 NUEVO: Procesar pago con Custom Tabs
+  // 🔥 Procesar pago con Custom Tabs
   // ────────────────────────────────────────────────────────────────
   Future<void> _processMercadoPagoPayment(
       int orderId, double total) async {
@@ -225,7 +225,7 @@ class _CartScreenState extends State<CartScreen> {
                 context, '¡Pago exitoso! Pedido #$orderId confirmado');
           }
         }
-      } else if (orderStatus == 'pending') {
+      } else if (orderStatus == 'pending' || orderStatus == 'in_process') {
         // ⏳ Pendiente
         widget.onOrderPlaced();
         if (mounted) {
@@ -238,8 +238,16 @@ class _CartScreenState extends State<CartScreen> {
                 'Tu pago está pendiente de confirmación.');
           }
         }
-      } else {
+      } else if (orderStatus == 'failed' || 
+                 orderStatus == 'rejected' || 
+                 orderStatus == 'cancelled') {
         // ❌ Fallido
+        if (mounted) {
+          CustomDialogs.showError(
+              context, 'El pago fue rechazado. Intenta con otro método de pago.');
+        }
+      } else {
+        // ❌ Fallido genérico
         if (mounted) {
           CustomDialogs.showError(
               context, 'No se pudo confirmar el pago. Intenta de nuevo.');
