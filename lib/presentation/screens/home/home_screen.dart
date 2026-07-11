@@ -8,6 +8,8 @@ import '../../../core/ui/custom_dialogs.dart';
 import '../../../data/models/product_model.dart';
 import '../../../presentation/providers/cart_provider.dart';
 import '../../../presentation/providers/product_provider.dart';
+import '../../../presentation/providers/order_provider.dart';
+import '../../../presentation/providers/payment_provider.dart';
 import '../../widgets/home/home_header.dart';
 import '../../widgets/home/category_chips.dart';
 import '../../widgets/home/product_grid.dart';
@@ -31,8 +33,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedCategory = 'Todo';
   bool _isNavigating = false;
 
-  // ── Throttle para agregar al carrito ──
-  // Evita spam de taps — mínimo 800ms entre agrego del mismo producto
   final Map<int, DateTime> _lastAddTime = {};
   static const Duration _addThrottle = Duration(milliseconds: 800);
 
@@ -42,16 +42,73 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<ProductProvider>().fetchProducts();
+      if (mounted) {
+        // Cargar productos
+        context.read<ProductProvider>().fetchProducts();
+        // 🔥 Verificar pedidos pendientes
+        _checkPendingOrders();
+      }
     });
   }
 
-  List<ProductModel> _getFilteredProducts(List<ProductModel> products) {
-    if (_selectedCategory == 'Todo') return products;
-    return products.where((p) => p.category == _selectedCategory).toList();
+  // ────────────────────────────────────────────────────────────────
+  // 🔥 VERIFICAR PEDIDOS PENDIENTES AL ABRIR LA APP
+  // ────────────────────────────────────────────────────────────────
+  Future<void> _checkPendingOrders() async {
+    final orderProvider = context.read<OrderProvider>();
+    final paymentProvider = context.read<PaymentProvider>();
+    
+    // Esperar a que los pedidos se carguen
+    await Future.delayed(const Duration(milliseconds: 800));
+    
+    // Obtener pedidos pendientes
+    final pendingOrders = orderProvider.orders
+        .where((o) => o.paymentStatus == 'pending' || o.paymentStatus == 'in_process')
+        .toList();
+    
+    if (pendingOrders.isEmpty) return;
+    
+    print('🔍 [HOME] Se encontraron ${pendingOrders.length} pedidos pendientes');
+    
+    for (final order in pendingOrders) {
+      // Verificar si el pedido tiene mp_payment_id
+      if (order.mpPaymentId != null && order.mpPaymentId!.isNotEmpty) {
+        print('🔍 [HOME] Verificando pedido #${order.id} con mp_payment_id: ${order.mpPaymentId}');
+        
+        // Verificar directamente en MP
+        final result = await paymentProvider.verifyPayment(order.mpPaymentId!);
+        
+        print('🔍 [HOME] Resultado para pedido #${order.id}: ${result['status']}');
+        
+        if (result['status'] == 'approved' || result['status'] == 'completed') {
+          // ✅ El pago fue aprobado, refrescar pedidos
+          await orderProvider.fetchOrders();
+          if (mounted) {
+            CustomDialogs.showSuccess(
+              context,
+              '¡Tu pago fue confirmado! Pedido #${order.id}'
+            );
+          }
+        } else if (result['status'] == 'failed' || result['status'] == 'rejected') {
+          // ❌ El pago fue rechazado
+          await orderProvider.fetchOrders();
+          if (mounted) {
+            CustomDialogs.showError(
+              context,
+              'El pago del pedido #${order.id} fue rechazado. Intenta de nuevo.'
+            );
+          }
+        } else if (result['status'] == 'pending' || result['status'] == 'in_process') {
+          // ⏳ Aún está pendiente
+          print('⏳ [HOME] Pedido #${order.id} sigue pendiente');
+        }
+      }
+    }
   }
 
-  // ── Throttle check ──────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────
+  // THROTTLE
+  // ────────────────────────────────────────────────────────────────
   bool _isThrottled(int productId) {
     final last = _lastAddTime[productId];
     if (last == null) return false;
@@ -62,7 +119,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _lastAddTime[productId] = DateTime.now();
   }
 
-  // ── Validar stock antes de agregar ─────────────────────────────
+  // ────────────────────────────────────────────────────────────────
+  // VALIDAR STOCK
+  // ────────────────────────────────────────────────────────────────
   bool _canAddToCart(ProductModel product, CartProvider cartProvider) {
     if (product.stock != null && product.stock! <= 0) {
       CustomDialogs.showError(context, '${product.name} no está disponible');
@@ -91,7 +150,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return true;
   }
 
-  // ── Navegación ──────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────
+  // NAVEGACIÓN
+  // ────────────────────────────────────────────────────────────────
   void _goToProduct(ProductModel product, CartProvider cartProvider) {
     if (_isNavigating) return;
     _isNavigating = true;
@@ -149,7 +210,6 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(builder: (_) => const OrderHistoryScreen()),
     ).whenComplete(() {
       if (mounted) {
-        // ✅ FIX: regresa al índice 0 (Menú) al volver de Pedidos
         setState(() {
           _selectedNav = 0;
           _isNavigating = false;
@@ -167,7 +227,6 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(builder: (_) => const ProfileScreen()),
     ).whenComplete(() {
       if (mounted) {
-        // ✅ FIX: regresa al índice 0 (Menú) al volver de Perfil
         setState(() {
           _selectedNav = 0;
           _isNavigating = false;
@@ -199,7 +258,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ✅ FIX: throttle al agregar desde la grid
   void _addToCart(CartProvider cartProvider, ProductModel p) {
     if (_isThrottled(p.id)) return;
     if (!_canAddToCart(p, cartProvider)) return;
@@ -213,51 +271,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ── Badge del carrito ──────────────────────────────────────────
-  Widget _buildCartIcon(CartProvider cartProvider) {
-    final itemCount = cartProvider.itemCount;
-    final displayCount = itemCount > 99 ? '99+' : '$itemCount';
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.shopping_cart_rounded),
-          onPressed: _goToCart,
-          color: AppColors.textDark,
-        ),
-        if (itemCount > 0)
-          Positioned(
-            right: 4,
-            top: 4,
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
-              child: Text(
-                displayCount,
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
+  // ────────────────────────────────────────────────────────────────
+  // BUILD
+  // ────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return Consumer2<ProductProvider, CartProvider>(
-      builder: (context, productProvider, cartProvider, _) {
+    return Consumer3<ProductProvider, CartProvider, OrderProvider>(
+      builder: (context, productProvider, cartProvider, orderProvider, _) {
         final products = productProvider.products;
         final isLoading = productProvider.isLoading;
         final filteredProducts = _getFilteredProducts(products);
@@ -327,6 +347,51 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+
+  List<ProductModel> _getFilteredProducts(List<ProductModel> products) {
+    if (_selectedCategory == 'Todo') return products;
+    return products.where((p) => p.category == _selectedCategory).toList();
+  }
+
+  Widget _buildCartIcon(CartProvider cartProvider) {
+    final itemCount = cartProvider.itemCount;
+    final displayCount = itemCount > 99 ? '99+' : '$itemCount';
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.shopping_cart_rounded),
+          onPressed: _goToCart,
+          color: AppColors.textDark,
+        ),
+        if (itemCount > 0)
+          Positioned(
+            right: 4,
+            top: 4,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 16,
+              ),
+              child: Text(
+                displayCount,
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

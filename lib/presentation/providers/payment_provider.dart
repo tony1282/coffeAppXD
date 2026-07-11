@@ -1,10 +1,4 @@
 // lib/presentation/providers/payment_provider.dart
-//
-// Corregido:
-//  - Idempotency key determinista (orderId+userId+amount) en lugar de timestamp
-//  - Usa PaymentGuard para bloqueo de duplicados
-//  - Usa MercadoPagoService (no http directo)
-//  - El total NO se pasa al backend — el backend lo calcula desde la BD
 
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -23,7 +17,6 @@ class PaymentProvider with ChangeNotifier {
   final _guard = PaymentGuard.instance;
   final _mp = MercadoPagoService.instance;
 
-  // ── Límites de seguridad ──
   static const int _maxPayments = 500;
   static const double _minValidAmount = 1.0;
   static const double _maxValidAmount = 100000.0;
@@ -31,7 +24,6 @@ class PaymentProvider with ChangeNotifier {
   static const int _maxRetries = 1;
   static const Duration _retryDelay = Duration(seconds: 1);
 
-  // ── Estado ──
   List<Payment> _payments = [];
   bool isLoading = false;
   String? _errorMsg;
@@ -56,14 +48,12 @@ class PaymentProvider with ChangeNotifier {
     if (kDebugMode) AppLogger.error('PaymentProvider: ${failure.message}');
   }
 
-  // ── Validaciones locales (pre-vuelo) ──
   bool _isValidAmount(double amount) =>
       amount >= _minValidAmount && amount <= _maxValidAmount;
 
   String? _currentUserId() =>
       FirebaseAuth.instance.currentUser?.uid;
 
-  // ── Network wrapper con retry ──
   Future<T> _safeRequest<T>(Future<T> Function() request) async {
     int attempt = 0;
     while (true) {
@@ -132,25 +122,22 @@ class PaymentProvider with ChangeNotifier {
   }
 
   // ────────────────────────────────────────────────────────────────
-  // CREATE MERCADO PAGO PREFERENCE
-  //
-  // Retorna la MercadoPagoPreference lista para abrir en el WebView.
-  // El total NO se envía al backend — el backend lo recalcula desde la BD.
+  // CREATE MERCADO PAGO PREFERENCE (NUEVO: recibe orderData)
   // ────────────────────────────────────────────────────────────────
   Future<MercadoPagoPreference> createMercadoPagoPreference({
-    required int orderId,
-    required double amountForValidation, // solo para validar localmente
+    required Map<String, dynamic> orderData,
   }) async {
     _clearError();
 
-    // ── 1. Validación local de monto ──
-    if (!_isValidAmount(amountForValidation)) {
+    // 1️⃣ Validar monto
+    final total = (orderData['total'] as num?)?.toDouble() ?? 0;
+    if (!_isValidAmount(total)) {
       const msg = 'Monto de pago inválido';
       _setError(msg);
       throw ServerException(message: msg);
     }
 
-    // ── 2. Usuario autenticado ──
+    // 2️⃣ Usuario autenticado
     final userId = _currentUserId();
     if (userId == null) {
       const msg = 'Debes iniciar sesión para pagar';
@@ -158,14 +145,17 @@ class PaymentProvider with ChangeNotifier {
       throw ServerException(message: msg);
     }
 
-    // ── 3. Construir idempotency key determinista ──
+    // Asegurar que el userId coincida
+    orderData['user_id'] = userId;
+
+    // 3️⃣ Construir idempotency key
     final idempotencyKey = _guard.buildKey(
-      orderId: orderId,
+      orderId: DateTime.now().millisecondsSinceEpoch,
       userId: userId,
-      amount: amountForValidation,
+      amount: total,
     );
 
-    // ── 4. Bloquear duplicados ──
+    // 4️⃣ Bloquear duplicados
     if (!_guard.acquire(idempotencyKey)) {
       const msg = 'Este pago ya está siendo procesado. Espera un momento.';
       _setError(msg);
@@ -175,9 +165,8 @@ class PaymentProvider with ChangeNotifier {
     _setLoading(true);
 
     try {
-      // ── 5. Llamar al backend (sin total, con idempotency key) ──
       final preference = await _mp.createPreference(
-        orderId: orderId,
+        orderData: orderData,
         idempotencyKey: idempotencyKey,
       );
 
@@ -193,12 +182,10 @@ class PaymentProvider with ChangeNotifier {
       rethrow;
     } finally {
       _setLoading(false);
-      // La key se mantiene activa en _guard hasta que el WebView
-      // termine (éxito, fallo o cancelación). Se libera desde CartScreen.
     }
   }
 
-  // Liberar el lock después de que el WebView termine
+  // Liberar el lock
   void releasePaymentLock({
     required int orderId,
     required String userId,
@@ -213,13 +200,12 @@ class PaymentProvider with ChangeNotifier {
   }
 
   // ────────────────────────────────────────────────────────────────
-  // CREATE PAYMENT (pagos en general — efectivo, etc.)
+  // CREATE PAYMENT (legacy)
   // ────────────────────────────────────────────────────────────────
   Future<Map<String, dynamic>> createPayment(
       Map<String, dynamic> data) async {
     _clearError();
 
-    // Validar datos
     final amount = (data['amount'] as num?)?.toDouble() ?? 0;
     if (!_isValidAmount(amount)) {
       const msg = 'Datos de pago inválidos';
@@ -242,14 +228,10 @@ class PaymentProvider with ChangeNotifier {
       throw ServerException(message: msg);
     }
 
-    // Idempotency key para pagos genéricos (sin orderId fijo)
-    // Usamos un hash de userId+monto+método+minuto actual
     final minuteBucket =
-        DateTime.now().millisecondsSinceEpoch ~/ 60000; // ventana de 1 min
-    final rawKey =
-        'generic|user:$userId|amount:${(amount * 100).round()}|method:$method|bucket:$minuteBucket';
+        DateTime.now().millisecondsSinceEpoch ~/ 60000;
     final idempotencyKey = _guard.buildKey(
-      orderId: minuteBucket, // proxy para evitar duplicados en la misma ventana
+      orderId: minuteBucket,
       userId: userId,
       amount: amount,
     );
@@ -264,11 +246,10 @@ class PaymentProvider with ChangeNotifier {
 
     try {
       final payload = Map<String, dynamic>.from(data);
-      // Limpiar campos que no debe mandar el cliente
       payload
         ..remove('id')
         ..remove('created_at')
-        ..remove('user_id') // el backend lo extrae del token
+        ..remove('user_id')
         ..['idempotency_key'] = idempotencyKey;
 
       final response = await _safeRequest(
@@ -278,7 +259,6 @@ class PaymentProvider with ChangeNotifier {
         throw ServerException(message: 'Respuesta inválida');
       }
 
-      // Actualizar lista local si el backend devuelve el pago creado
       if (response['payment'] is Map<String, dynamic>) {
         try {
           final newPayment =
@@ -301,6 +281,23 @@ class PaymentProvider with ChangeNotifier {
       _guard.release(idempotencyKey);
     }
   }
+
+  // lib/presentation/providers/payment_provider.dart
+
+// ═══════════════════════════════════════════════════════════════════
+// 🔍 VERIFICAR PAGO DIRECTAMENTE EN MERCADO PAGO
+// ═══════════════════════════════════════════════════════════════════
+Future<Map<String, dynamic>> verifyPayment(String preferenceId) async {
+  try {
+    final result = await _api.verifyPayment(preferenceId);
+    return result;
+  } catch (e) {
+    if (kDebugMode) AppLogger.error('verifyPayment', e);
+    return {'status': 'error', 'message': e.toString()};
+  }
+}
+
+
 
   // ────────────────────────────────────────────────────────────────
   // CLEAR (logout)

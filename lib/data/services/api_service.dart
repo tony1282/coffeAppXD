@@ -266,4 +266,49 @@ class ApiService {
       throw NetworkException(ErrorMessages.noInternet);
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 🔥 NUEVO: CREATE MERCADO PAGO PREFERENCE (con orderData)
+  // ═══════════════════════════════════════════════════════════════
+  Future<Map<String, dynamic>> createMercadoPagoPreference({
+    required Map<String, dynamic> orderData,
+    required String idempotencyKey,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      headers['X-Idempotency-Key'] = idempotencyKey;
+
+      final response = await ApiClient.createSecureClient()
+          .post(
+            Uri.parse('${ApiConfig.baseUrl}${ApiConfig.mpCreatePreference}'),
+            headers: headers,
+            body: jsonEncode({
+              'order_data': orderData,
+              'idempotency_key': idempotencyKey,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      return _handleResponse(response, ApiConfig.mpCreatePreference) as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('POST ${ApiConfig.mpCreatePreference}', e);
+      rethrow;
+    }
+  }
+
+  // lib/data/services/api_service.dart
+
+// ═══════════════════════════════════════════════════════════════════
+// 🔍 VERIFICAR PAGO DIRECTAMENTE EN MERCADO PAGO
+// ═══════════════════════════════════════════════════════════════════
+Future<Map<String, dynamic>> verifyPayment(String preferenceId) async {
+  try {
+    final response = await get('/payments/verify/$preferenceId');
+    return response as Map<String, dynamic>;
+  } catch (e) {
+    AppLogger.error('verifyPayment($preferenceId)', e);
+    return {'status': 'error', 'message': e.toString()};
+  }
+}
+
 }

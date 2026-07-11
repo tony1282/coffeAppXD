@@ -1,12 +1,12 @@
 // lib/presentation/screens/orders/cart_screen.dart
 
+import 'package:coffe_app/data/models/order_model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_custom_tabs/flutter_custom_tabs.dart' as custom_tabs;
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../core/security/payment_result.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/ui/custom_dialogs.dart';
@@ -44,11 +44,13 @@ class _CartScreenState extends State<CartScreen> {
   int? _pendingOrderId;
   double? _pendingAmount;
   String? _selectedMethod;
+  String? _currentPreferenceId;
 
   static const int _minQuantity = 1;
   static const int _maxQuantityPerProduct = 99;
+  static const Duration _webhookTimeout = Duration(seconds: 8);
+  static const int _maxVerificationAttempts = 6;
 
-  // ✅ SIEMPRE TARJETA
   static const String _paymentMethod = 'Tarjeta';
 
   @override
@@ -56,7 +58,7 @@ class _CartScreenState extends State<CartScreen> {
     super.initState();
     _items = List.from(widget.cartItems);
     _cartProvider = context.read<CartProvider>();
-    _selectedMethod = _paymentMethod; // ✅ Forzar tarjeta
+    _selectedMethod = _paymentMethod;
   }
 
   double get _total =>
@@ -120,24 +122,119 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   // ────────────────────────────────────────────────────────────────
-  // 🔥 Procesar pago con Custom Tabs
+  // 🔥 OBTENER MENSAJE DE ERROR ESPECÍFICO
   // ────────────────────────────────────────────────────────────────
-  Future<void> _processMercadoPagoPayment(
-      int orderId, double total) async {
+  String _getPaymentErrorMessage(String status, String? detail) {
+    switch (status) {
+      case 'rejected':
+        if (detail?.contains('insufficient') ?? false) {
+          return 'Fondos insuficientes. Intenta con otra tarjeta.';
+        }
+        if (detail?.contains('expired') ?? false) {
+          return 'La tarjeta ha expirado.';
+        }
+        if (detail?.contains('security') ?? false) {
+          return 'Código de seguridad inválido.';
+        }
+        if (detail?.contains('blocked') ?? false) {
+          return 'Tarjeta bloqueada. Contacta a tu banco.';
+        }
+        if (detail?.contains('limit') ?? false) {
+          return 'Límite de gasto excedido.';
+        }
+        if (detail?.contains('duplicate') ?? false) {
+          return 'Este pago ya fue procesado.';
+        }
+        if (detail?.contains('invalid') ?? false) {
+          return 'Número de tarjeta inválido.';
+        }
+        if (detail?.contains('installment') ?? false) {
+          return 'Cuotas no disponibles.';
+        }
+        return 'El pago fue rechazado. Intenta de nuevo.';
+      case 'pending':
+        return 'Tu pago está en proceso. Te notificaremos cuando sea confirmado.';
+      case 'in_process':
+        return 'Tu banco está validando el pago. Esto puede tardar unos minutos.';
+      case 'not_found':
+        return 'No se encontró el pago. Intenta de nuevo.';
+      case 'error':
+        return 'Error al verificar el pago. Intenta de nuevo.';
+      default:
+        return 'No se pudo procesar el pago. Intenta de nuevo.';
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // 🔥 VERIFICAR DIRECTAMENTE EN MERCADO PAGO
+  // ────────────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> _verifyDirectlyWithMercadoPago(String preferenceId) async {
     final paymentProvider = context.read<PaymentProvider>();
-    _pendingOrderId = orderId;
-    _pendingAmount = total;
+    return await paymentProvider.verifyPayment(preferenceId);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // 🔥 ESPERAR WEBHOOK CON TIMEOUT Y FALLBACK
+  // ────────────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> _waitForPaymentConfirmation(
+    String preferenceId,
+    String userId,
+  ) async {
+    int attempts = 0;
+    
+    while (attempts < _maxVerificationAttempts) {
+      await Future.delayed(const Duration(seconds: 3));
+      attempts++;
+      
+      // Refrescar pedidos
+      final orderProvider = context.read<OrderProvider>();
+      await orderProvider.fetchOrders();
+      
+      // Buscar el pedido más reciente del usuario
+      final orders = orderProvider.orders;
+      final newOrder = orders.cast<Order?>().firstWhere(
+        (o) => o?.userId == userId && o?.paymentStatus != 'failed' && o?.paymentStatus != 'rejected',
+        orElse: () => orders.firstOrNull,
+      );
+      
+      if (newOrder != null && (newOrder.paymentStatus == 'completed' || newOrder.paymentStatus == 'paid')) {
+        return {
+          'status': 'approved',
+          'order_id': newOrder.id,
+          'payment_status': newOrder.paymentStatus,
+        };
+      }
+      
+      if (newOrder != null && newOrder.paymentStatus == 'pending') {
+        // Si sigue pendiente después de varios intentos, verificar directamente
+        if (attempts >= 3) {
+          final verification = await _verifyDirectlyWithMercadoPago(preferenceId);
+          return verification;
+        }
+      }
+    }
+    
+    // ⏰ Timeout - verificar directamente en MP
+    return await _verifyDirectlyWithMercadoPago(preferenceId);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // 🔥 PROCESAR PAGO COMPLETO
+  // ────────────────────────────────────────────────────────────────
+  Future<void> _processMercadoPagoPayment(Map<String, dynamic> orderData) async {
+    final paymentProvider = context.read<PaymentProvider>();
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     try {
-      // 1. Crear preferencia
+      // 1️⃣ Crear preferencia
       final preference = await paymentProvider.createMercadoPagoPreference(
-        orderId: orderId,
-        amountForValidation: total,
+        orderData: orderData,
       );
+      _currentPreferenceId = preference.preferenceId;
 
       if (!mounted) return;
 
-      // 2. Abrir Custom Tab
+      // 2️⃣ Abrir Custom Tab
       try {
         await custom_tabs.launchUrl(
           Uri.parse(preference.initPoint),
@@ -165,7 +262,6 @@ class _CartScreenState extends State<CartScreen> {
           ),
         );
       } catch (e) {
-        // Fallback a navegador externo
         print('⚠️ Custom Tabs falló, usando navegador: $e');
         await launchUrl(
           Uri.parse(preference.initPoint),
@@ -175,7 +271,7 @@ class _CartScreenState extends State<CartScreen> {
 
       if (!mounted) return;
 
-      // 3. Mostrar loading mientras verificamos
+      // 3️⃣ Mostrar loading
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -199,23 +295,25 @@ class _CartScreenState extends State<CartScreen> {
         ),
       );
 
-      // 4. Esperar a que el webhook procese (3-5 segundos)
-      await Future.delayed(const Duration(seconds: 4));
-
-      // 5. Consultar estado del pedido
-      final orderProvider = context.read<OrderProvider>();
-      final orderStatus = await orderProvider.getOrderPaymentStatus(orderId);
+      // 4️⃣ Esperar webhook con timeout
+      final result = await _waitForPaymentConfirmation(
+        preference.preferenceId,
+        userId,
+      );
 
       if (!mounted) {
-        Navigator.pop(context); // Cerrar loading
+        Navigator.pop(context);
         return;
       }
 
       Navigator.pop(context); // Cerrar loading
 
-      // 6. Procesar resultado
-      if (orderStatus == 'completed' || orderStatus == 'paid') {
+      // 5️⃣ Procesar resultado
+      final status = result['status'];
+
+      if (status == 'approved' || status == 'completed') {
         // ✅ Éxito
+        final orderId = result['order_id'];
         widget.onOrderPlaced();
         if (mounted) {
           Navigator.popUntil(context, (r) => r.isFirst);
@@ -225,7 +323,7 @@ class _CartScreenState extends State<CartScreen> {
                 context, '¡Pago exitoso! Pedido #$orderId confirmado');
           }
         }
-      } else if (orderStatus == 'pending' || orderStatus == 'in_process') {
+      } else if (status == 'pending' || status == 'in_process') {
         // ⏳ Pendiente
         widget.onOrderPlaced();
         if (mounted) {
@@ -234,20 +332,25 @@ class _CartScreenState extends State<CartScreen> {
           if (mounted) {
             CustomDialogs.showSuccess(
                 context,
-                'Pedido #$orderId registrado. '
-                'Tu pago está pendiente de confirmación.');
+                'Pedido registrado. Tu pago está pendiente de confirmación.\n'
+                'Te notificaremos cuando sea aprobado.');
           }
         }
-      } else if (orderStatus == 'failed' || 
-                 orderStatus == 'rejected' || 
-                 orderStatus == 'cancelled') {
-        // ❌ Fallido
+      } else if (status == 'failed' || status == 'rejected') {
+        // ❌ Fallido con mensaje específico
+        final detail = result['payment_detail'] as String?;
+        final errorMsg = _getPaymentErrorMessage('rejected', detail);
+        if (mounted) {
+          CustomDialogs.showError(context, errorMsg);
+        }
+      } else if (status == 'not_found') {
+        // ⚠️ No se encontró el pago
         if (mounted) {
           CustomDialogs.showError(
-              context, 'El pago fue rechazado. Intenta con otro método de pago.');
+              context, 'No se encontró el pago. Intenta de nuevo.');
         }
       } else {
-        // ❌ Fallido genérico
+        // ❌ Error genérico
         if (mounted) {
           CustomDialogs.showError(
               context, 'No se pudo confirmar el pago. Intenta de nuevo.');
@@ -262,8 +365,8 @@ class _CartScreenState extends State<CartScreen> {
             context, 'Error al procesar el pago. Intenta de nuevo.');
       }
     } finally {
+      // Liberar lock
       if (_pendingOrderId != null && _pendingAmount != null) {
-        final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
         paymentProvider.releasePaymentLock(
           orderId: _pendingOrderId!,
           userId: userId,
@@ -275,6 +378,9 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
+  // ────────────────────────────────────────────────────────────────
+  // 🔥 PLACE ORDER
+  // ────────────────────────────────────────────────────────────────
   Future<void> _placeOrder() async {
     if (_isProcessing) return;
     if (_items.isEmpty) {
@@ -289,33 +395,22 @@ class _CartScreenState extends State<CartScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      final userId =
-          context.read<app_auth.AuthProvider>().userModel?.userId;
+      final userId = context.read<app_auth.AuthProvider>().userModel?.userId;
 
       final orderData = {
         'user_id': userId,
-        'items': _items
-            .map((item) => {
-                  'product_id': item.product.id,
-                  'quantity': item.quantity,
-                })
-            .toList(),
-        'payment_method': 'card',
+        'items': _items.map((item) => {
+          'product_id': item.product.id,
+          'product_name': item.product.name,
+          'quantity': item.quantity,
+          'price': item.product.price,
+        }).toList(),
+        'total': _total,
         'delivery_address': 'Calle Principal 123',
       };
 
-      final orderProvider = context.read<OrderProvider>();
-      final success = await orderProvider.createOrder(orderData);
+      await _processMercadoPagoPayment(orderData);
 
-      if (!mounted) return;
-
-      if (success && orderProvider.orders.isNotEmpty) {
-        final orderId = orderProvider.orders.first.id!;
-        await _processMercadoPagoPayment(orderId, _total);
-      } else {
-        throw Exception(
-            orderProvider.errorMsg ?? 'Error al crear pedido');
-      }
     } catch (e) {
       if (mounted) {
         CustomDialogs.showError(
@@ -410,11 +505,9 @@ class _CartScreenState extends State<CartScreen> {
                           onChangeTap: () {},
                         ),
                         Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 20, 16, 10),
+                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
                           child: Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 'Tus productos',
@@ -427,8 +520,7 @@ class _CartScreenState extends State<CartScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color:
-                                      AppColors.primary.withOpacity(0.10),
+                                  color: AppColors.primary.withOpacity(0.10),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
@@ -445,11 +537,9 @@ class _CartScreenState extends State<CartScreen> {
                         ListView.separated(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: _items.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
+                          separatorBuilder: (_, __) => const SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             return CartItemTile(
                               item: _items[index],
