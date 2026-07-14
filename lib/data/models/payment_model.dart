@@ -8,16 +8,16 @@ import '../../core/utils/validators.dart';
 class Payment {
   final int? id;
   final String? orderId;
+  final String? userId;
   final double amount;
   final String method;
   final String status;
   final DateTime createdAt;
-  
-  // ✅ NUEVOS CAMPOS PARA REEMBOLSO
   final double? refundedAmount;
   final DateTime? refundedAt;
   final String? refundReason;
   final String? refundId;
+  final String? tokenTransaccion;
 
   static const List<String> _validStatuses = [
     'pending', 'completed', 'failed', 'refunded', 'partial_refund'
@@ -27,6 +27,7 @@ class Payment {
   Payment({
     this.id,
     this.orderId,
+    this.userId,
     required this.amount,
     required this.method,
     required this.status,
@@ -35,6 +36,7 @@ class Payment {
     this.refundedAt,
     this.refundReason,
     this.refundId,
+    this.tokenTransaccion,
   });
 
   bool get isRefundable =>
@@ -115,9 +117,15 @@ class Payment {
       }
     }
 
+    // id_usuario
+    String? parsedUserId;
+    final userIdRaw = json['user_id'] ?? json['id_usuario'];
+    if (userIdRaw != null) parsedUserId = userIdRaw.toString();
+
     return Payment(
       id: parsedId,
       orderId: json['order_id']?.toString(),
+      userId: parsedUserId,
       amount: parsedAmount,
       method: validMethod,
       status: validStatus,
@@ -126,6 +134,7 @@ class Payment {
       refundedAt: parsedRefundedAt,
       refundReason: json['refund_reason'] as String?,
       refundId: json['refund_id'] as String?,
+      tokenTransaccion: json['token_transaccion']?.toString() ?? json['transaction_token']?.toString(),
     );
   }
 }

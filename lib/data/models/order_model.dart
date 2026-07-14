@@ -20,9 +20,13 @@ class Order {
   final double? deliveryLat;
   final double? deliveryLng;
   final String? notes;
-  
-  // ⭐ NUEVO: mp_payment_id para reembolsos
   final String? mpPaymentId;
+  // campos faltantes del módulo Pedidos
+  final DateTime? fechaEntrega;
+  final int? idPago;
+  final Map<String, double>? ubicacionCliente;
+  final Map<String, double>? ubicacionRepartidor;
+  final bool estadoTracking;
 
   static const double _minValidTotal = 1.0;
   static const double _maxValidTotal = 100000.0;
@@ -51,7 +55,12 @@ class Order {
     this.deliveryLat,
     this.deliveryLng,
     this.notes,
-    this.mpPaymentId,  // ← NUEVO
+    this.mpPaymentId,
+    this.fechaEntrega,
+    this.idPago,
+    this.ubicacionCliente,
+    this.ubicacionRepartidor,
+    this.estadoTracking = false,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -183,8 +192,51 @@ class Order {
       }
     }
 
-    // ⭐ NUEVO: mp_payment_id
+    // ⭐ mp_payment_id
     final mpPaymentId = json['mp_payment_id']?.toString();
+
+    // fecha_entrega
+    DateTime? parsedFechaEntrega;
+    final fechaEntregaStr = json['fecha_entrega'];
+    if (fechaEntregaStr != null) {
+      try {
+        parsedFechaEntrega = DateTime.parse(fechaEntregaStr.toString());
+      } catch (_) {}
+    }
+
+    // id_pago
+    int? parsedIdPago;
+    final idPagoRaw = json['id_pago'];
+    if (idPagoRaw is int) {
+      parsedIdPago = idPagoRaw;
+    } else if (idPagoRaw is String) {
+      parsedIdPago = int.tryParse(idPagoRaw);
+    }
+
+    // ubicacion_cliente
+    Map<String, double>? parsedUbicacionCliente;
+    final ucRaw = json['ubicacion_cliente'];
+    if (ucRaw is Map) {
+      try {
+        parsedUbicacionCliente = ucRaw.map((k, v) =>
+            MapEntry(k.toString(), (v as num).toDouble()));
+      } catch (_) {}
+    }
+
+    // ubicacion_repartidor
+    Map<String, double>? parsedUbicacionRepartidor;
+    final urRaw = json['ubicacion_repartidor'];
+    if (urRaw is Map) {
+      try {
+        parsedUbicacionRepartidor = urRaw.map((k, v) =>
+            MapEntry(k.toString(), (v as num).toDouble()));
+      } catch (_) {}
+    }
+
+    // estado_tracking
+    final estadoTracking = json['estado_tracking'] is bool
+        ? json['estado_tracking'] as bool
+        : false;
 
     return Order(
       id: parsedId,
@@ -201,7 +253,12 @@ class Order {
       deliveryLat: parsedLat,
       deliveryLng: parsedLng,
       notes: json['notes']?.toString(),
-      mpPaymentId: mpPaymentId,  // ← NUEVO
+      mpPaymentId: mpPaymentId,
+      fechaEntrega: parsedFechaEntrega,
+      idPago: parsedIdPago,
+      ubicacionCliente: parsedUbicacionCliente,
+      ubicacionRepartidor: parsedUbicacionRepartidor,
+      estadoTracking: estadoTracking,
     );
   }
 
@@ -220,7 +277,12 @@ class Order {
     double? deliveryLat,
     double? deliveryLng,
     String? notes,
-    String? mpPaymentId,  // ← NUEVO
+    String? mpPaymentId,
+    DateTime? fechaEntrega,
+    int? idPago,
+    Map<String, double>? ubicacionCliente,
+    Map<String, double>? ubicacionRepartidor,
+    bool? estadoTracking,
   }) {
     return Order(
       id: id ?? this.id,
@@ -237,7 +299,12 @@ class Order {
       deliveryLat: deliveryLat ?? this.deliveryLat,
       deliveryLng: deliveryLng ?? this.deliveryLng,
       notes: notes ?? this.notes,
-      mpPaymentId: mpPaymentId ?? this.mpPaymentId,  // ← NUEVO
+      mpPaymentId: mpPaymentId ?? this.mpPaymentId,
+      fechaEntrega: fechaEntrega ?? this.fechaEntrega,
+      idPago: idPago ?? this.idPago,
+      ubicacionCliente: ubicacionCliente ?? this.ubicacionCliente,
+      ubicacionRepartidor: ubicacionRepartidor ?? this.ubicacionRepartidor,
+      estadoTracking: estadoTracking ?? this.estadoTracking,
     );
   }
 

@@ -1,21 +1,21 @@
-// lib/presentation/screens/admin/orders/admin_order_detail.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/config/constants.dart';
-import '../../../../core/config/order_status_config.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/ui/custom_dialogs.dart';
+import '../../../../core/config/order_status_config.dart';
 import '../../../../presentation/providers/order_provider.dart';
-import '../../../../presentation/widgets/admin/orders/admin_order_actions.dart';
+import '../../../../presentation/widgets/order/order_detail_map.dart';
+import '../../../../presentation/widgets/order/order_detail_header.dart';
+import '../../../../presentation/widgets/order/order_detail_section.dart';
 import '../../../../presentation/widgets/admin/orders/admin_order_info.dart';
 import '../../../../presentation/widgets/admin/orders/admin_order_items.dart';
 import '../../../../presentation/widgets/admin/orders/admin_order_notes.dart';
+import '../../../../presentation/widgets/admin/orders/admin_order_actions.dart';
 import '../../../../presentation/widgets/admin/orders/admin_order_payment.dart';
-import '../../../../presentation/widgets/order/order_detail_header.dart';
-import '../../../../presentation/widgets/order/order_detail_map.dart';
-import '../../../../presentation/widgets/order/order_detail_section.dart';
 import '../../../../presentation/widgets/order/order_detail_status_stopper.dart';
+// lib/presentation/screens/admin/orders/admin_order_detail.dart
+
 
 class AdminOrderDetail extends StatefulWidget {
   final int? orderId;
@@ -147,18 +147,42 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
             // ✅ FIX: mostrar loading solo si no hay orden cargada todavía
             // Si ya hay orden y solo estamos refrescando, no mostrar pantalla de carga
             if (isLoading && order == null) {
-              return const Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(
+                      color: AppColors.primary,
+                      strokeWidth: 3,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Cargando pedido...',
+                      style: AppTextStyles.bodyLarge.copyWith(
+                        color: AppColors.textGrey,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
               );
             }
 
             if (order == null) {
               return Center(
-                child: Text(
-                  'Pedido no encontrado',
-                  style: AppTextStyles.bodyLarge.copyWith(
-                    color: AppColors.textGrey,
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.receipt_long_rounded,
+                        size: 48, color: AppColors.textGrey.withOpacity(0.4)),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Pedido no encontrado',
+                      style: AppTextStyles.bodyLarge.copyWith(
+                        color: AppColors.textGrey,
+                      ),
+                    ),
+                  ],
                 ),
               );
             }
@@ -176,19 +200,19 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
                     children: [
                       OrderDetailStatusStepper(currentStatus: order.status),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 22),
 
                       if (!isLast && !_isProcessing && !isCancelled && !isDelivered)
                         _buildAdvanceButton(statusIdx),
                       if (!isLast && !_isProcessing && !isCancelled && !isDelivered)
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 22),
 
                       OrderDetailMap(
                         address: order.deliveryAddress ?? 'Dirección no especificada',
                         lat: order.deliveryLat ?? 19.4326,
                         lng: order.deliveryLng ?? -99.1332,
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 18),
 
                       OrderDetailSection(
                         title: 'Cliente',
@@ -239,15 +263,26 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
     final color = OrderStatusConfig.colors[nextStatus] ?? AppColors.primary;
 
     return Container(
-      height: 50,
+      height: 52,
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [color, color.withOpacity(0.80)]),
-        borderRadius: BorderRadius.circular(14),
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [color, color.withOpacity(0.80)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.30),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           onTap: _advanceStatus,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -275,17 +310,17 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
 
   Widget _buildCancelButton() {
     return Container(
-      height: 50,
+      height: 52,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.error.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.error.withOpacity(0.25)),
+        color: AppColors.error.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.error.withOpacity(0.22)),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           onTap: _cancelOrder,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,

@@ -8,9 +8,8 @@ class UserModel {
   final String userEmail;
   final String photoUrl;
   final String rol;
-
-  // ✅ NUEVOS CAMPOS
   final String? phone;
+  final DateTime? fechaRegistro;
 
   // ============================================================
   // CONFIGURACIÓN DE SEGURIDAD
@@ -32,9 +31,8 @@ class UserModel {
     required this.userEmail,
     required this.photoUrl,
     this.rol = _defaultRole,
-
-    // ✅ NUEVOS CAMPOS
     this.phone,
+    this.fechaRegistro,
   });
 
   // ============================================================
@@ -123,9 +121,8 @@ class UserModel {
       'userEmail': userEmail,
       'photoUrl': photoUrl,
       'rol': rol,
-
-      // ✅ NUEVOS CAMPOS
       if (phone != null) 'phone': phone,
+      if (fechaRegistro != null) 'fecha_registro': fechaRegistro!.toIso8601String(),
     };
   }
 
@@ -192,17 +189,25 @@ class UserModel {
 
     final normalizedRol = _normalizeRol(rol);
 
+    // fechaRegistro
+    DateTime? parsedFechaRegistro;
+    final fechaRaw = map['fecha_registro'] ?? map['createdAt'];
+    if (fechaRaw != null) {
+      try {
+        parsedFechaRegistro = fechaRaw is DateTime
+            ? fechaRaw
+            : DateTime.parse(fechaRaw.toString());
+      } catch (_) {}
+    }
+
     return UserModel(
       userId: userId.toString().trim(),
       userName: userName?.toString().trim() ?? 'Usuario',
       userEmail: userEmail?.toString().trim() ?? '',
       photoUrl: photoUrl?.toString() ?? '',
       rol: normalizedRol,
-
-      // ✅ NUEVOS CAMPOS
-      phone: _isValidPhone(phone)
-          ? phone?.toString().trim()
-          : null,
+      phone: _isValidPhone(phone) ? phone?.toString().trim() : null,
+      fechaRegistro: parsedFechaRegistro,
     );
   }
 
@@ -215,9 +220,8 @@ class UserModel {
     String? userEmail,
     String? photoUrl,
     String? rol,
-
-    // ✅ NUEVOS CAMPOS
     String? phone,
+    DateTime? fechaRegistro,
   }) {
     return UserModel(
       userId: userId ?? this.userId,
@@ -225,9 +229,8 @@ class UserModel {
       userEmail: userEmail ?? this.userEmail,
       photoUrl: photoUrl ?? this.photoUrl,
       rol: rol ?? this.rol,
-
-      // ✅ NUEVOS CAMPOS
       phone: phone ?? this.phone,
+      fechaRegistro: fechaRegistro ?? this.fechaRegistro,
     );
   }
 }

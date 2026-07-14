@@ -1,16 +1,14 @@
-// lib/presentation/providers/order_provider.dart
-
 import 'dart:async';
-import 'package:coffe_app/data/services/oder_realtime_service.dart';
-import 'package:coffe_app/data/services/refound_service.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import '../../core/error/error_handler.dart';
-import '../../core/error/failure.dart';
 import '../../core/utils/logger.dart';
-import '../../core/config/order_status_config.dart';
+import 'package:flutter/material.dart';
+import '../../core/error/failure.dart';
+import 'package:flutter/foundation.dart';
 import '../../data/models/order_model.dart';
+import '../../core/error/error_handler.dart';
 import '../../data/services/order_service.dart';
+import 'package:coffe_app/data/services/refound_service.dart';
+import 'package:coffe_app/data/services/oder_realtime_service.dart';
+// lib/presentation/providers/order_provider.dart
 
 class OrderProvider with ChangeNotifier {
   final OrderService _service = OrderService();
@@ -22,14 +20,19 @@ class OrderProvider with ChangeNotifier {
   static const Duration _retryDelay = Duration(milliseconds: 500);
 
   static const List<String> _validStatuses = [
-    'pending', 'confirmed', 'preparing', 'shipped', 'delivered', 'cancelled',
+    'pending',
+    'confirmed',
+    'preparing',
+    'shipped',
+    'delivered',
+    'cancelled',
   ];
 
   static const Map<String, List<String>> _allowedTransitions = {
-    'pending':   ['confirmed', 'cancelled'],
+    'pending': ['confirmed', 'cancelled'],
     'confirmed': ['preparing', 'cancelled'],
     'preparing': ['shipped', 'cancelled'],
-    'shipped':   ['delivered', 'cancelled'],
+    'shipped': ['delivered', 'cancelled'],
     'delivered': [],
     'cancelled': [],
   };
@@ -47,9 +50,19 @@ class OrderProvider with ChangeNotifier {
   List<Order> get activeOrders => List.unmodifiable(_activeOrders);
   Order? get currentOrder => _currentOrder;
 
-  void _setLoading(bool v) { isLoading = v; notifyListeners(); }
-  void _setError(String? msg) { errorMsg = msg; notifyListeners(); }
-  void _clearError() { errorMsg = null; }
+  void _setLoading(bool v) {
+    isLoading = v;
+    notifyListeners();
+  }
+
+  void _setError(String? msg) {
+    errorMsg = msg;
+    notifyListeners();
+  }
+
+  void _clearError() {
+    errorMsg = null;
+  }
 
   void _handleFailure(Failure failure) {
     _setError(failure.message);
@@ -90,7 +103,8 @@ class OrderProvider with ChangeNotifier {
     try {
       final fetched = await _withNetworkFallback(() => _service.getOrders());
 
-      if (kDebugMode) AppLogger.debug('OrderProvider: fetched count: ${fetched.length}');
+      if (kDebugMode)
+        AppLogger.debug('OrderProvider: fetched count: ${fetched.length}');
 
       final truncated = fetched.length > _maxOrders
           ? fetched.sublist(0, _maxOrders)
@@ -105,10 +119,10 @@ class OrderProvider with ChangeNotifier {
 
       // ⭐ Inicializar WebSocket después de cargar pedidos
       _initRealtimeUpdates();
-
     } catch (e) {
       _handleFailure(ErrorHandler.handleError(e));
-      if (kDebugMode) AppLogger.error('OrderProvider: Error en fetchOrders: $e');
+      if (kDebugMode)
+        AppLogger.error('OrderProvider: Error en fetchOrders: $e');
     } finally {
       _setLoading(false);
       _isFetching = false;
@@ -197,7 +211,8 @@ class OrderProvider with ChangeNotifier {
     final idx = _orders.indexWhere((o) => o.id == id);
     if (idx == -1) {
       _setError('Pedido no encontrado');
-      if (kDebugMode) AppLogger.error('OrderProvider: Pedido $id no en _orders');
+      if (kDebugMode)
+        AppLogger.error('OrderProvider: Pedido $id no en _orders');
       return false;
     }
 
@@ -234,7 +249,8 @@ class OrderProvider with ChangeNotifier {
       final result = await _withNetworkFallback(
           () => _service.updateOrderStatus(id, normalizedStatus));
 
-      if (kDebugMode) AppLogger.debug('OrderProvider: updateOrderStatus exitoso');
+      if (kDebugMode)
+        AppLogger.debug('OrderProvider: updateOrderStatus exitoso');
 
       final finalIdx = _orders.indexWhere((o) => o.id == id);
       if (finalIdx != -1) _orders[finalIdx] = result;
@@ -272,13 +288,13 @@ class OrderProvider with ChangeNotifier {
     try {
       // ✅ Obtener el pedido antes de cancelar para verificar pago
       final order = await _withNetworkFallback(() => _service.getOrderById(id));
-      
+
       // ✅ Procesar reembolso si aplica
       await _processRefundForOrder(order);
-      
+
       // ✅ Cancelar en el backend
       await _withNetworkFallback(() => _service.cancelOrder(id));
-      
+
       await fetchOrders();
       return true;
     } catch (e) {
@@ -304,23 +320,26 @@ class OrderProvider with ChangeNotifier {
     try {
       // ⭐ PRIORIDAD 1: Usar mp_payment_id si existe
       if (order.mpPaymentId != null && order.mpPaymentId!.isNotEmpty) {
-        AppLogger.debug('OrderProvider: Usando mp_payment_id guardado: ${order.mpPaymentId}');
-        
+        AppLogger.debug(
+            'OrderProvider: Usando mp_payment_id guardado: ${order.mpPaymentId}');
+
         await _refundService.requestRefund(
           paymentId: int.parse(order.mpPaymentId!),
           amount: order.total,
           reason: 'Cancelación de pedido #${order.id}',
         );
-        
-        AppLogger.debug('OrderProvider: ✅ Reembolso procesado con mp_payment_id');
+
+        AppLogger.debug(
+            'OrderProvider: ✅ Reembolso procesado con mp_payment_id');
         return;
       }
-      
+
       // ⭐ PRIORIDAD 2: Fallback - obtener de la API
-      AppLogger.debug('OrderProvider: mp_payment_id no disponible, buscando en API');
-      
+      AppLogger.debug(
+          'OrderProvider: mp_payment_id no disponible, buscando en API');
+
       final payments = await _refundService.getPaymentsByOrder(order.id!);
-      
+
       final payment = payments.firstWhere(
         (p) => p.status == 'completed',
         orElse: () => throw Exception('No se encontró pago completado'),
@@ -337,8 +356,8 @@ class OrderProvider with ChangeNotifier {
         reason: 'Cancelación de pedido #${order.id}',
       );
 
-      AppLogger.debug('OrderProvider: ✅ Reembolso procesado para pedido #${order.id}');
-      
+      AppLogger.debug(
+          'OrderProvider: ✅ Reembolso procesado para pedido #${order.id}');
     } catch (e) {
       // No fallar la cancelación si el reembolso falla
       AppLogger.error('OrderProvider: ⚠️ Error procesando reembolso', e);
@@ -354,7 +373,8 @@ class OrderProvider with ChangeNotifier {
       final order = await _withNetworkFallback(() => _service.getOrderById(id));
       return order.paymentStatus;
     } catch (e) {
-      if (kDebugMode) AppLogger.error('OrderProvider: getOrderPaymentStatus($id): $e');
+      if (kDebugMode)
+        AppLogger.error('OrderProvider: getOrderPaymentStatus($id): $e');
       return null;
     }
   }
@@ -379,31 +399,34 @@ class OrderProvider with ChangeNotifier {
     OrderRealtimeService.instance.onOrderUpdated = (orderJson) {
       try {
         final updatedOrder = Order.fromJson(orderJson);
-        
+
         // Actualizar en la lista
         final index = _orders.indexWhere((o) => o.id == updatedOrder.id);
         if (index != -1) {
           _orders[index] = updatedOrder;
-          
+
           // Actualizar activeOrders
           _activeOrders = _orders
               .where((o) => o.status != 'delivered' && o.status != 'cancelled')
               .toList();
-          
+
           // Actualizar currentOrder si es el mismo
           if (_currentOrder?.id == updatedOrder.id) {
             _currentOrder = updatedOrder;
           }
-          
+
           notifyListeners();
-          
+
           if (kDebugMode) {
-            AppLogger.debug('OrderProvider: 📦 Pedido #${updatedOrder.id} actualizado en tiempo real');
+            AppLogger.debug(
+                'OrderProvider: 📦 Pedido #${updatedOrder.id} actualizado en tiempo real');
           }
         }
       } catch (e) {
         if (kDebugMode) {
-          AppLogger.error('OrderProvider: Error procesando actualización en tiempo real', e);
+          AppLogger.error(
+              'OrderProvider: Error procesando actualización en tiempo real',
+              e);
         }
       }
     };

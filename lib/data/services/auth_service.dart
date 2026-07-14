@@ -1,15 +1,13 @@
-// data/services/auth_service.dart
-
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'api_service.dart';
+import '../models/user_model.dart';
+import '../../core/error/exceptions.dart';
+import '../../core/utils/validators.dart';
+import '../../core/error/error_messages.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import '../../core/error/exceptions.dart';
-import '../../core/error/error_messages.dart';
-import '../../core/utils/logger.dart';
-import '../../core/utils/validators.dart';
-import '../models/user_model.dart';
-import 'api_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+// data/services/auth_service.dart
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -34,7 +32,8 @@ class AuthService {
   Future<void> _initializeGoogle() async {
     if (!_googleInitialized) {
       await GoogleSignIn.instance.initialize(
-        serverClientId: '240474115166-a9dgsph1moh247c2klilssr1v7gr5bcr.apps.googleusercontent.com',
+        serverClientId:
+            '240474115166-a9dgsph1moh247c2klilssr1v7gr5bcr.apps.googleusercontent.com',
       );
       _googleInitialized = true;
     }
@@ -55,7 +54,8 @@ class AuthService {
       }
       throw AuthException(ErrorMessages.googleFailed);
     } catch (e) {
-      _logSecure('signInWithGoogle', 'unexpected during GoogleSignIn: ${e.runtimeType}');
+      _logSecure('signInWithGoogle',
+          'unexpected during GoogleSignIn: ${e.runtimeType}');
       throw AuthException(ErrorMessages.googleFailed);
     }
 
@@ -66,7 +66,8 @@ class AuthService {
     try {
       googleAuth = await googleUser.authentication;
     } catch (e) {
-      _logSecure('signInWithGoogle', 'failed to get authentication: ${e.runtimeType}');
+      _logSecure(
+          'signInWithGoogle', 'failed to get authentication: ${e.runtimeType}');
       throw AuthException(ErrorMessages.googleFailed);
     }
 
@@ -76,7 +77,8 @@ class AuthService {
 
     UserCredential result;
     try {
-      final credential = GoogleAuthProvider.credential(idToken: googleAuth.idToken);
+      final credential =
+          GoogleAuthProvider.credential(idToken: googleAuth.idToken);
       result = await _auth.signInWithCredential(credential);
     } on FirebaseAuthException catch (e) {
       throw AuthException(_mapFirebaseAuthError(e));
@@ -105,7 +107,10 @@ class AuthService {
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      await _db.collection('users').doc(user.uid).set(userData, SetOptions(merge: true));
+      await _db
+          .collection('users')
+          .doc(user.uid)
+          .set(userData, SetOptions(merge: true));
     } on FirebaseException catch (e) {
       _logSecure('signInWithGoogle', 'Firestore write failed: ${e.code}');
     }
@@ -274,7 +279,8 @@ class AuthService {
       final updateData = <String, dynamic>{
         'updatedAt': FieldValue.serverTimestamp(),
       };
-      if (name != null && name.trim().isNotEmpty) updateData['userName'] = name.trim();
+      if (name != null && name.trim().isNotEmpty)
+        updateData['userName'] = name.trim();
       if (photoUrl != null) updateData['photoUrl'] = photoUrl;
       if (phone != null) updateData['phone'] = phone.trim();
 

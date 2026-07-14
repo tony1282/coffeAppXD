@@ -1,5 +1,3 @@
-// lib/presentation/screens/admin/products/admin_product_form.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -8,16 +6,18 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../core/ui/custom_dialogs.dart';
 import '../../../../data/models/product_model.dart';
 import '../../../../presentation/providers/product_provider.dart';
-import '../../../../presentation/widgets/products/form/product_availability_section.dart';
-import '../../../../presentation/widgets/products/form/product_category_picker.dart';
-import '../../../../presentation/widgets/products/form/product_delete_button.dart';
 import '../../../../presentation/widgets/products/form/product_form_card.dart';
 import '../../../../presentation/widgets/products/form/product_form_header.dart';
-import '../../../../presentation/widgets/products/form/product_image_section.dart';
 import '../../../../presentation/widgets/products/form/product_info_section.dart';
-import '../../../../presentation/widgets/products/form/product_price_section.dart';
 import '../../../../presentation/widgets/products/form/product_section_tile.dart';
+import '../../../../presentation/widgets/products/form/product_delete_button.dart';
+import '../../../../presentation/widgets/products/form/product_image_section.dart';
+import '../../../../presentation/widgets/products/form/product_price_section.dart';
 import '../../../../presentation/widgets/products/form/product_submit_button.dart';
+import '../../../../presentation/widgets/products/form/product_category_picker.dart';
+import '../../../../presentation/widgets/products/form/product_availability_section.dart';
+// lib/presentation/screens/admin/products/admin_product_form.dart
+
 
 class AdminProductForm extends StatefulWidget {
   const AdminProductForm({super.key, this.product});
@@ -194,7 +194,7 @@ class _AdminProductFormState extends State<AdminProductForm> {
               child: Form(
                 key: _formKey,
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+                  padding: const EdgeInsets.fromLTRB(16, 22, 16, 32),
                   children: [
                     ProductSectionTitle(title: 'Información básica'),
                     const SizedBox(height: 12),
@@ -206,7 +206,7 @@ class _AdminProductFormState extends State<AdminProductForm> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 22),
                     ProductSectionTitle(title: 'Precio y categoría'),
                     const SizedBox(height: 12),
                     ProductFormCard(
@@ -219,7 +219,7 @@ class _AdminProductFormState extends State<AdminProductForm> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 22),
                     ProductSectionTitle(title: 'Imagen'),
                     const SizedBox(height: 12),
                     ProductFormCard(
@@ -231,7 +231,7 @@ class _AdminProductFormState extends State<AdminProductForm> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 22),
                     ProductSectionTitle(title: 'Disponibilidad'),
                     const SizedBox(height: 12),
                     ProductFormCard(
@@ -248,14 +248,14 @@ class _AdminProductFormState extends State<AdminProductForm> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 34),
                     ProductSubmitButton(
                       isEditing: _isEditing,
                       submitting: _isSubmitting,
                       onPressed: _isSubmitting ? null : _submit,
                     ),
                     if (_isEditing) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
                       ProductDeleteButton(product: widget.product!),
                     ],
                   ],

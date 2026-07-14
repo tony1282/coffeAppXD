@@ -89,10 +89,10 @@ class OrderStatusConfig {
   static const List<String> stepperSteps = adminStepper;
 
   static const List<Color> stepperColors = [
-    Color(0xFFFFB347),  // pending
-    Color(0xFF4CAF7D),  // preparing
-    Color(0xFF8B5CF6),  // shipped
-    Color(0xFF8A8A8A),  // delivered
+    Color(0xFFFFB347), // pending
+    Color(0xFF4CAF7D), // preparing
+    Color(0xFF8B5CF6), // shipped
+    Color(0xFF8A8A8A), // delivered
   ];
 
   // ─── PAYMENT COLORS ────────────────────────────────────────

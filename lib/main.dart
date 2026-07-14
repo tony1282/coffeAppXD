@@ -1,5 +1,6 @@
 // lib/main.dart
 
+// cSpell:ignore coffe
 import 'package:coffe_app/data/services/oder_realtime_service.dart';
 import 'package:coffe_app/presentation/screens/auth/register_screen.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +18,7 @@ import 'presentation/providers/order_provider.dart';
 import 'presentation/providers/product_provider.dart';
 import 'presentation/providers/cart_provider.dart';
 import 'presentation/providers/payment_provider.dart';
+import 'presentation/providers/sale_provider.dart';
 import 'data/models/cart_item_model.dart';
 import 'core/config/constants.dart';
 import 'core/theme/app_theme.dart';
@@ -42,6 +44,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => PaymentProvider()),
+        ChangeNotifierProvider(create: (_) => SaleProvider()),
       ],
       child: MaterialApp(
         title: 'Coffee Shop',

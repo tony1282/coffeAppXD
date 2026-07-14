@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
-import '../../../../../core/config/constants.dart';
-import '../../../data/models/product_model.dart';
 import 'dashboard_icon_btn.dart';
+import 'package:flutter/material.dart';
+import '../../../data/models/product_model.dart';
+import '../../../../../core/config/constants.dart';
 
 class DashboardProductAdminTile extends StatelessWidget {
   const DashboardProductAdminTile({
@@ -32,16 +32,17 @@ class DashboardProductAdminTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _statusColor.withOpacity(0.12), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -50,10 +51,10 @@ class DashboardProductAdminTile extends StatelessWidget {
         children: [
           // Imagen
           ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             child: Container(
-              width: 52,
-              height: 52,
+              width: 58,
+              height: 58,
               color: AppColors.primary.withOpacity(0.08),
               child: product.imageUrl?.isNotEmpty == true
                   ? Image.network(
@@ -62,14 +63,14 @@ class DashboardProductAdminTile extends StatelessWidget {
                       errorBuilder: (_, __, ___) => Icon(
                         Icons.coffee_rounded,
                         color: AppColors.primary,
-                        size: 24,
+                        size: 26,
                       ),
                     )
                   : Icon(Icons.coffee_rounded,
-                      color: AppColors.primary, size: 24),
+                      color: AppColors.primary, size: 26),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
 
           // Info
           Expanded(
@@ -80,62 +81,79 @@ class DashboardProductAdminTile extends StatelessWidget {
                   product.name,
                   style: const TextStyle(
                     color: AppColors.textDark,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 6),
                 Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppColors.textGrey.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(5),
+                        color: AppColors.textGrey.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         product.category,
                         style: const TextStyle(
                           color: AppColors.textGrey,
                           fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: _statusColor.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(5),
+                        color: _statusColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(
-                        _statusLabel,
-                        style: TextStyle(
-                          color: _statusColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: _statusColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            _statusLabel,
+                            style: TextStyle(
+                              color: _statusColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Text(
                       '\$${product.price.toStringAsFixed(2)}',
                       style: TextStyle(
                         color: AppColors.primary,
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(width: 10),
+                    Icon(Icons.inventory_2_outlined,
+                        size: 13, color: AppColors.textGrey.withOpacity(0.7)),
+                    const SizedBox(width: 3),
                     Text(
                       '${product.stock ?? 0} en stock',
                       style: const TextStyle(
@@ -150,12 +168,15 @@ class DashboardProductAdminTile extends StatelessWidget {
             ),
           ),
 
+          const SizedBox(width: 4),
+
           // Acciones verticales
           Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               DashboardIconBtn(
                   Icons.edit_rounded, AppColors.primary, onEdit ?? () {}),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               DashboardIconBtn(
                   Icons.delete_rounded, AppColors.error, onDelete ?? () {}),
             ],

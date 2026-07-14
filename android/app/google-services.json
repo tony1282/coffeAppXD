@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "240474115166-aq7g8jjkcne1dcbop25e73r6vriki38o.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.coffe_app",
+            "certificate_hash": "10e9ca61a220a4194e69b0af6a54d6b2ab9c273b"
+          }
+        },
+        {
           "client_id": "240474115166-a9dgsph1moh247c2klilssr1v7gr5bcr.apps.googleusercontent.com",
           "client_type": 3
         }

@@ -1,114 +1,100 @@
-import 'package:coffe_app/core/config/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
+import 'package:coffe_app/core/config/constants.dart';
 
 class DashboardTabBar extends StatelessWidget {
-  const DashboardTabBar({
-    super.key,
-    required this.currentTab,
-    required this.pendingCount,
-    required this.onTap,
-  });
+  const DashboardTabBar({super.key, this.onMenuPressed});
 
-  final int currentTab;
-  final int pendingCount;
-  final void Function(int) onTap;
+  /// Callback para abrir el menú hamburguesa (Drawer). Si es null,
+  /// el ícono de menú no se muestra.
+  final VoidCallback? onMenuPressed;
 
   @override
   Widget build(BuildContext context) {
-    const tabs = [
-      (Icons.bar_chart_rounded, 'Resumen'),
-      (Icons.receipt_long_rounded, 'Pedidos'),
-      (Icons.inventory_2_rounded, 'Productos'),
-    ];
+    final auth = context.watch<AuthProvider>();
+    final nombre = auth.userModel?.userName ?? 'Admin';
+    final initials = nombre.isNotEmpty ? nombre[0].toUpperCase() : 'A';
 
     return Container(
-      color: AppColors.primary,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: List.generate(tabs.length, (i) {
-            final active = currentTab == i;
-            final showBadge = i == 1 && pendingCount > 0;
-
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => onTap(i),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeInOut,
-                      padding: const EdgeInsets.symmetric(vertical: 9),
-                      decoration: BoxDecoration(
-                        color: active ? Colors.white : Colors.transparent,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: active
-                            ? [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.10),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            tabs[i].$1,
-                            size: 14,
-                            color: active
-                                ? AppColors.primary
-                                : Colors.white.withOpacity(0.8),
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            tabs[i].$2,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: active
-                                  ? AppColors.primary
-                                  : Colors.white.withOpacity(0.8),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (showBadge)
-                      Positioned(
-                        top: -3,
-                        right: 6,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: AppColors.error,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '$pendingCount',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 14, 16, 14),
+      decoration: const BoxDecoration(
+        color: AppColors.primary,
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: onMenuPressed,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
               ),
-            );
-          }),
-        ),
+              child:
+                  const Icon(Icons.menu_rounded, color: Colors.white, size: 20),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Panel Admin',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  'Hola, $nombre ',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.75),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: Colors.white.withOpacity(0.20),
+            child: Text(
+              initials,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () async {
+              await context.read<AuthProvider>().logout();
+              if (context.mounted) {
+                Navigator.of(context)
+                    .pushNamedAndRemoveUntil('/login', (_) => false);
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.logout_rounded,
+                  color: Colors.white, size: 16),
+            ),
+          ),
+        ],
       ),
     );
   }
