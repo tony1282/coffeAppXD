@@ -2,6 +2,56 @@
 
 Aplicación Flutter para administración y venta de café.
 
+## Resumen general
+
+Esta app está organizada con una arquitectura simple pero bastante clara:
+
+- La capa de datos maneja modelos, repositorios, servicios y fuentes de datos.
+- La capa de dominio define los contratos y la lógica de negocio.
+- La capa de presentación contiene pantallas, widgets y providers.
+
+El punto de entrada principal es la app en `lib/main.dart`, donde se inicializan Firebase, Hive y los providers globales.
+
+## Estructura del proyecto
+
+- `lib/core`: constantes, tema, utilidades, manejo de errores y configuración general.
+- `lib/data`: modelos, repositorios, datasources, servicios de Firebase/API y persistencia local.
+- `lib/domain`: contratos de repositorios y lógica de negocio.
+- `lib/presentation`: pantallas, widgets y providers que alimentan la UI.
+- `assets/`: imágenes y recursos estáticos.
+
+## Cómo funciona la app
+
+1. Al arrancar, `main.dart` inicializa los servicios base.
+2. Se monta `MultiProvider` para compartir estado global entre pantallas.
+3. `_AuthGate` escucha el estado de autenticación y decide si mostrar login, home o admin.
+4. Cada pantalla usa providers para cargar datos, actualizar estado y mostrar errores.
+
+## Providers principales
+
+Los providers son el corazón del estado de la app. Cada uno se encarga de un dominio concreto y notifica a la UI cuando cambia algo.
+
+- `AuthProvider`: maneja autenticación, login con email/Google, registro, logout y carga del perfil del usuario.
+- `ProductProvider`: administra productos, carga la lista, crea/actualiza/elimina productos y valida datos.
+- `CartProvider`: controla el carrito, guarda items, valida cantidades y sincroniza con backend/local.
+- `OrderProvider`: administra pedidos, cambia estados, procesa reembolsos y gestiona la lista de pedidos activos.
+- `PaymentProvider`: gestiona pagos, preferencias de Mercado Pago, validaciones de monto y bloqueo de operaciones duplicadas.
+- `SaleProvider`: consulta información de ventas y genera reportes por periodo (día, semana, mes).
+- `AdminProvider`: está pensado para administración de pedidos y panel de admin, aunque conviene revisar si realmente se está usando.
+
+### Importante sobre los providers
+
+- Se registran en `MultiProvider` desde `lib/main.dart`.
+- Las pantallas consumen el estado con `context.watch`, `context.read` o `context.select` según el caso.
+- Cuando un provider cambia, la UI se reconstruye automáticamente.
+
+## Flujo típico de la app
+
+- Login/registro: `AuthProvider`
+- Ver productos y agregar al carrito: `ProductProvider` + `CartProvider`
+- Crear pedido y pagar: `PaymentProvider` + `OrderProvider`
+- Panel administrativo: `OrderProvider` + `ProductProvider` + `SaleProvider`
+
 ## Requisitos
 
 - Flutter >= 3.0.0
@@ -122,6 +172,14 @@ Antes de publicar, haz esto:
 - Revisa permisos en `AndroidManifest.xml`
 - Prueba el app bundle en un dispositivo real
 - Haz un test completo de los flujos clave
+
+### Pendientes técnicos que conviene revisar
+
+- `AdminProvider` existe pero no aparece registrado en `MultiProvider`.
+- `CartProvider.init()` existe, pero no parece invocarse en el arranque de la app.
+- Conviene revisar si el carrito debe inicializarse tras iniciar sesión o al entrar a home.
+- Falta una capa más clara de tests para auth, carrito, pedidos y pagos.
+- Sería bueno documentar mejor los endpoints y los contratos de respuesta de la API.
 
 ## Archivo de requisitos
 
