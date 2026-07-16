@@ -33,6 +33,7 @@ class DashboardKpiCard extends StatelessWidget {
         ],
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -48,8 +49,8 @@ class DashboardKpiCard extends StatelessWidget {
               ),
               if (sublabel != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.10),
                     borderRadius: BorderRadius.circular(20),
@@ -57,8 +58,7 @@ class DashboardKpiCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.arrow_upward_rounded,
-                          size: 9, color: color),
+                      Icon(Icons.arrow_upward_rounded, size: 9, color: color),
                       const SizedBox(width: 2),
                       Text(
                         sublabel!,
@@ -74,23 +74,33 @@ class DashboardKpiCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Text(
-            value,
-            style: TextStyle(
-              color: AppColors.textDark,
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.5,
-              height: 1,
+          Flexible(
+            child: FittedBox(
+              alignment: Alignment.centerLeft,
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(
+                  color: AppColors.textDark,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                  height: 1,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textGrey,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textGrey,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],

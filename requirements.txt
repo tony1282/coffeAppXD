@@ -1,0 +1,56 @@
+# Requisitos para ejecutar la app "coffe_app"
+
+# 1. Flutter / Dart
+flutter >= 3.0.0
+# El SDK de Dart se instala automáticamente con Flutter.
+
+# 2. Android
+Android SDK con:
+- Android SDK Platform 36
+- Android SDK Build-Tools 36.x
+- Android SDK Platform-Tools
+- Android Emulator (o dispositivo físico USB)
+
+# 3. iOS (opcional, solo si se va a compilar en macOS)
+# - Xcode 14+ (según la versión de Flutter)
+# - CocoaPods
+
+# 4. Dependencias de Flutter (pubspec.yaml)
+cupertino_icons: ^1.0.8
+firebase_core: ^4.0.0
+firebase_auth: ^6.0.0
+google_sign_in: ^7.0.0
+cloud_firestore: ^6.0.0
+cached_network_image: ^3.3.1
+provider: ^6.1.2
+image_picker: ^1.2.2
+http: ^1.6.0
+permission_handler: ^12.0.1
+hive: ^2.2.3
+hive_flutter: ^1.1.0
+webview_flutter: ^4.13.1
+equatable: ^2.0.8
+flutter_native_splash: ^2.4.7
+crypto: ^3.0.7
+flutter_custom_tabs: ^2.5.0
+url_launcher: ^6.3.2
+web_socket_channel: ^3.0.3
+
+# 5. Dependencias de desarrollo
+flutter_test: sdk: flutter
+flutter_lints: ^6.0.0
+flutter_launcher_icons: ^0.14.4
+hive_generator: ^2.0.1
+build_runner: ^2.4.9
+
+# 6. Pasos para preparar el proyecto
+# 1) Instalar Flutter y el SDK de Android.
+# 2) Ejecutar:
+#    flutter pub get
+# 3) Si se usa Hive con generadores:
+#    flutter pub run build_runner build --delete-conflicting-outputs
+
+# 7. Notas adicionales
+# - Asegúrate de tener configurado Firebase en el proyecto (android/google-services.json, ios/GoogleService-Info.plist).
+# - Si el proyecto usa AndroidX, tu SDK de Android y Gradle deben ser compatibles.
+# - En Windows, ejecutar desde PowerShell con las variables de entorno de Flutter configuradas.
