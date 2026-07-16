@@ -1,16 +1,16 @@
-// lib/presentation/providers/payment_provider.dart
-
 import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
-import '../../core/error/error_handler.dart';
-import '../../core/error/failure.dart';
-import '../../core/error/exceptions.dart';
-import '../../core/security/payment_guard.dart';
 import '../../core/utils/logger.dart';
+import '../../core/error/failure.dart';
+import 'package:flutter/foundation.dart';
+import '../../core/error/exceptions.dart';
+import '../../core/config/api_config.dart';
+import '../../core/error/error_handler.dart';
 import '../../data/models/payment_model.dart';
 import '../../data/services/api_service.dart';
+import '../../core/security/payment_guard.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../data/services/mercadopago_service.dart';
+// lib/presentation/providers/payment_provider.dart
 
 class PaymentProvider with ChangeNotifier {
   final ApiService _api = ApiService();
@@ -43,6 +43,21 @@ class PaymentProvider with ChangeNotifier {
 
   void _clearError() => _errorMsg = null;
 
+  List<Payment> _parsePayments(dynamic response) {
+    if (response is! List) return [];
+
+    final parsed = <Payment>[];
+    for (final item in response) {
+      if (item is! Map<String, dynamic>) continue;
+      try {
+        parsed.add(Payment.fromJson(item));
+      } catch (_) {
+        continue;
+      }
+    }
+    return parsed;
+  }
+
   void _handleFailure(Failure failure) {
     _setError(failure.message);
     if (kDebugMode) AppLogger.error('PaymentProvider: ${failure.message}');
@@ -51,8 +66,7 @@ class PaymentProvider with ChangeNotifier {
   bool _isValidAmount(double amount) =>
       amount >= _minValidAmount && amount <= _maxValidAmount;
 
-  String? _currentUserId() =>
-      FirebaseAuth.instance.currentUser?.uid;
+  String? _currentUserId() => FirebaseAuth.instance.currentUser?.uid;
 
   Future<T> _safeRequest<T>(Future<T> Function() request) async {
     int attempt = 0;
@@ -87,7 +101,8 @@ class PaymentProvider with ChangeNotifier {
     _setLoading(true);
 
     try {
-      final response = await _safeRequest(() => _api.get('/payments/my/'));
+      final response =
+          await _safeRequest(() => _api.get(ApiConfig.paymentsMyEndpoint));
 
       if (response is! List) {
         throw ServerException(message: 'Respuesta inválida');
@@ -97,22 +112,11 @@ class PaymentProvider with ChangeNotifier {
           ? response.sublist(0, _maxPayments)
           : response;
 
-      final safePayments = <Payment>[];
-      for (final item in truncated) {
-        if (item is! Map<String, dynamic>) continue;
-        try {
-          safePayments.add(Payment.fromJson(item));
-        } catch (_) {
-          continue;
-        }
-      }
-
-      _payments = safePayments;
+      _payments = _parsePayments(truncated);
       notifyListeners();
 
       if (kDebugMode) {
-        AppLogger.debug(
-            'PaymentProvider: Cargados ${_payments.length} pagos');
+        AppLogger.debug('PaymentProvider: Cargados ${_payments.length} pagos');
       }
     } catch (e) {
       _handleFailure(ErrorHandler.handleError(e));
@@ -202,8 +206,7 @@ class PaymentProvider with ChangeNotifier {
   // ────────────────────────────────────────────────────────────────
   // CREATE PAYMENT (legacy)
   // ────────────────────────────────────────────────────────────────
-  Future<Map<String, dynamic>> createPayment(
-      Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createPayment(Map<String, dynamic> data) async {
     _clearError();
 
     final amount = (data['amount'] as num?)?.toDouble() ?? 0;
@@ -228,8 +231,7 @@ class PaymentProvider with ChangeNotifier {
       throw ServerException(message: msg);
     }
 
-    final minuteBucket =
-        DateTime.now().millisecondsSinceEpoch ~/ 60000;
+    final minuteBucket = DateTime.now().millisecondsSinceEpoch ~/ 60000;
     final idempotencyKey = _guard.buildKey(
       orderId: minuteBucket,
       userId: userId,
@@ -253,7 +255,7 @@ class PaymentProvider with ChangeNotifier {
         ..['idempotency_key'] = idempotencyKey;
 
       final response = await _safeRequest(
-          () => _api.post('/payments/create/', payload));
+          () => _api.post(ApiConfig.paymentsCreateEndpoint, payload));
 
       if (response is! Map<String, dynamic>) {
         throw ServerException(message: 'Respuesta inválida');
@@ -287,17 +289,15 @@ class PaymentProvider with ChangeNotifier {
 // ═══════════════════════════════════════════════════════════════════
 // 🔍 VERIFICAR PAGO DIRECTAMENTE EN MERCADO PAGO
 // ═══════════════════════════════════════════════════════════════════
-Future<Map<String, dynamic>> verifyPayment(String preferenceId) async {
-  try {
-    final result = await _api.verifyPayment(preferenceId);
-    return result;
-  } catch (e) {
-    if (kDebugMode) AppLogger.error('verifyPayment', e);
-    return {'status': 'error', 'message': e.toString()};
+  Future<Map<String, dynamic>> verifyPayment(String preferenceId) async {
+    try {
+      final result = await _api.verifyPayment(preferenceId);
+      return result;
+    } catch (e) {
+      if (kDebugMode) AppLogger.error('verifyPayment', e);
+      return {'status': 'error', 'message': e.toString()};
+    }
   }
-}
-
-
 
   // ────────────────────────────────────────────────────────────────
   // CLEAR (logout)

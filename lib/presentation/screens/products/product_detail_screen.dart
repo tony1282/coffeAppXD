@@ -1,10 +1,9 @@
-// lib/presentation/screens/products/product_detail_screen.dart
-
 import 'package:flutter/material.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/ui/custom_dialogs.dart';
 import '../../../data/models/product_model.dart';
+// lib/presentation/screens/products/product_detail_screen.dart
 
 class ProductDetailScreen extends StatefulWidget {
   final ProductModel product;
@@ -81,7 +80,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   void _increaseQuantity() {
     if (_quantity >= _maxQuantity) {
-      CustomDialogs.showError(context, 'Máximo $_maxQuantity unidades por producto');
+      CustomDialogs.showError(
+          context, 'Máximo $_maxQuantity unidades por producto');
       return;
     }
     if (widget.product.stock != null && _quantity >= widget.product.stock!) {
@@ -102,7 +102,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isOutOfStock = widget.product.stock != null && widget.product.stock! <= 0;
+    final isOutOfStock =
+        widget.product.stock != null && widget.product.stock! <= 0;
+    final width = MediaQuery.of(context).size.width;
+    final horizontalPadding = width >= 700 ? 24.0 : 16.0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -116,7 +119,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(horizontalPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -153,7 +156,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             if (widget.product.stock != null && widget.product.stock! > 0) ...[
               const SizedBox(height: 20),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: AppColors.card,
                   borderRadius: BorderRadius.circular(12),
@@ -220,7 +224,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             'Agregar al carrito${_quantity > 1 ? " ($_quantity)" : ""}',
                           ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isOutOfStock ? Colors.grey : AppColors.primary,
+                  backgroundColor:
+                      isOutOfStock ? Colors.grey : AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(

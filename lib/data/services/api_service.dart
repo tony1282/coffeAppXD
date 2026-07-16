@@ -1,16 +1,15 @@
-// data/services/api_service.dart
-
+import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'package:firebase_auth/firebase_auth.dart';
-import '../../core/config/api_config.dart';
-import '../../core/error/exceptions.dart';
-import '../../core/error/error_messages.dart';
-import '../../core/network/api_client.dart';
-import '../../core/network/retry_policy.dart';
 import '../../core/utils/logger.dart';
+import 'package:http/http.dart' as http;
+import '../../core/error/exceptions.dart';
+import '../../core/config/api_config.dart';
+import '../../core/network/api_client.dart';
+import '../../core/error/error_messages.dart';
+import '../../core/network/retry_policy.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+// data/services/api_service.dart
 
 class ApiService {
   Future<Map<String, String>> _getHeaders({bool forceRefresh = false}) async {
@@ -51,16 +50,23 @@ class ApiService {
 
   String _sanitizeError(dynamic body, int statusCode, String endpoint) {
     switch (statusCode) {
-      case 400: return ErrorMessages.badRequest;
-      case 401: return ErrorMessages.sessionExpired;
-      case 403: return ErrorMessages.forbidden;
-      case 404: return ErrorMessages.notFound;
-      case 429: return ErrorMessages.tooManyRequests;
+      case 400:
+        return ErrorMessages.badRequest;
+      case 401:
+        return ErrorMessages.sessionExpired;
+      case 403:
+        return ErrorMessages.forbidden;
+      case 404:
+        return ErrorMessages.notFound;
+      case 429:
+        return ErrorMessages.tooManyRequests;
       case 500:
       case 502:
       case 503:
-      case 504: return ErrorMessages.serverError;
-      default: return ErrorMessages.unknown;
+      case 504:
+        return ErrorMessages.serverError;
+      default:
+        return ErrorMessages.unknown;
     }
   }
 
@@ -109,7 +115,7 @@ class ApiService {
       return await _executeWithRetry(
         (headers) => ApiClient.createSecureClient()
             .get(
-              Uri.parse('${ApiConfig.baseUrl}$endpoint'),
+              ApiConfig.buildUri(endpoint),
               headers: headers,
             )
             .timeout(const Duration(seconds: 15)),
@@ -126,7 +132,7 @@ class ApiService {
       return await _executeWithRetry(
         (headers) => ApiClient.createSecureClient()
             .post(
-              Uri.parse('${ApiConfig.baseUrl}$endpoint'),
+              ApiConfig.buildUri(endpoint),
               headers: headers,
               body: jsonEncode(data),
             )
@@ -144,7 +150,7 @@ class ApiService {
       return await _executeWithRetry(
         (headers) => ApiClient.createSecureClient()
             .put(
-              Uri.parse('${ApiConfig.baseUrl}$endpoint'),
+              ApiConfig.buildUri(endpoint),
               headers: headers,
               body: jsonEncode(data),
             )
@@ -162,7 +168,7 @@ class ApiService {
       return await _executeWithRetry(
         (headers) => ApiClient.createSecureClient()
             .patch(
-              Uri.parse('${ApiConfig.baseUrl}$endpoint'),
+              ApiConfig.buildUri(endpoint),
               headers: headers,
               body: jsonEncode(data),
             )
@@ -180,7 +186,7 @@ class ApiService {
       return await _executeWithRetry(
         (headers) => ApiClient.createSecureClient()
             .delete(
-              Uri.parse('${ApiConfig.baseUrl}$endpoint'),
+              ApiConfig.buildUri(endpoint),
               headers: headers,
             )
             .timeout(const Duration(seconds: 15)),
@@ -214,8 +220,14 @@ class ApiService {
   bool _isValidImageMagicBytes(List<int> bytes) {
     if (bytes.length < 4) return false;
     if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) return true;
-    if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) return true;
-    if (bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46) return true;
+    if (bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) return true;
+    if (bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46) return true;
     return false;
   }
 
@@ -226,7 +238,7 @@ class ApiService {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) throw AuthException(ErrorMessages.sessionExpired);
 
-    final uri = Uri.parse('${ApiConfig.baseUrl}/products/upload-image');
+    final uri = ApiConfig.buildUri(ApiConfig.productsUploadImageEndpoint);
 
     Future<http.Response> sendRequest(String? token) async {
       final request = http.MultipartRequest('POST', uri);
@@ -234,9 +246,11 @@ class ApiService {
         request.headers['Authorization'] = 'Bearer $token';
         request.headers['X-Content-Type-Options'] = 'nosniff';
       }
-      request.files.add(await http.MultipartFile.fromPath('file', imageFile.path));
+      request.files
+          .add(await http.MultipartFile.fromPath('file', imageFile.path));
       try {
-        final streamed = await request.send().timeout(const Duration(seconds: 30));
+        final streamed =
+            await request.send().timeout(const Duration(seconds: 30));
         return await http.Response.fromStream(streamed);
       } on TimeoutException {
         throw NetworkException(ErrorMessages.timeout);
@@ -259,7 +273,8 @@ class ApiService {
         return imageUrl;
       }
       throw ServerException(
-        message: _sanitizeError(body, response.statusCode, '/products/upload-image'),
+        message:
+            _sanitizeError(body, response.statusCode, '/products/upload-image'),
         statusCode: response.statusCode,
       );
     } on SocketException {
@@ -280,7 +295,7 @@ class ApiService {
 
       final response = await ApiClient.createSecureClient()
           .post(
-            Uri.parse('${ApiConfig.baseUrl}${ApiConfig.mpCreatePreference}'),
+            ApiConfig.buildUri(ApiConfig.mpCreatePreference),
             headers: headers,
             body: jsonEncode({
               'order_data': orderData,
@@ -289,7 +304,8 @@ class ApiService {
           )
           .timeout(const Duration(seconds: 15));
 
-      return _handleResponse(response, ApiConfig.mpCreatePreference) as Map<String, dynamic>;
+      return _handleResponse(response, ApiConfig.mpCreatePreference)
+          as Map<String, dynamic>;
     } catch (e) {
       AppLogger.error('POST ${ApiConfig.mpCreatePreference}', e);
       rethrow;
@@ -301,14 +317,13 @@ class ApiService {
 // ═══════════════════════════════════════════════════════════════════
 // 🔍 VERIFICAR PAGO DIRECTAMENTE EN MERCADO PAGO
 // ═══════════════════════════════════════════════════════════════════
-Future<Map<String, dynamic>> verifyPayment(String preferenceId) async {
-  try {
-    final response = await get('/payments/verify/$preferenceId');
-    return response as Map<String, dynamic>;
-  } catch (e) {
-    AppLogger.error('verifyPayment($preferenceId)', e);
-    return {'status': 'error', 'message': e.toString()};
+  Future<Map<String, dynamic>> verifyPayment(String preferenceId) async {
+    try {
+      final response = await get('/payments/verify/$preferenceId');
+      return response as Map<String, dynamic>;
+    } catch (e) {
+      AppLogger.error('verifyPayment($preferenceId)', e);
+      return {'status': 'error', 'message': e.toString()};
+    }
   }
-}
-
 }

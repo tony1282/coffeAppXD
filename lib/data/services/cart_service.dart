@@ -1,14 +1,12 @@
+import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
-
 import 'package:http/http.dart' as http;
-import 'package:firebase_auth/firebase_auth.dart';
-
+import '../models/cart_item_model.dart';
+import '../../core/error/exceptions.dart';
 import '../../core/config/api_config.dart';
 import '../../core/error/error_messages.dart';
-import '../../core/error/exceptions.dart';
-import '../models/cart_item_model.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CartService {
   Future<Map<String, String>> _getHeaders() async {
@@ -75,7 +73,7 @@ class CartService {
     try {
       final response = await http
           .get(
-            Uri.parse('${ApiConfig.baseUrl}/cart/'),
+            ApiConfig.buildUri(ApiConfig.cartEndpoint),
             headers: await _getHeaders(),
           )
           .timeout(const Duration(seconds: 30));
@@ -131,7 +129,7 @@ class CartService {
 
       final response = await http
           .post(
-            Uri.parse('${ApiConfig.baseUrl}/cart/sync'),
+            ApiConfig.buildUri(ApiConfig.cartSyncEndpoint),
             headers: await _getHeaders(),
             body: jsonEncode(body),
           )
@@ -160,7 +158,7 @@ class CartService {
     try {
       final response = await http
           .post(
-            Uri.parse('${ApiConfig.baseUrl}/cart/add'),
+            ApiConfig.buildUri(ApiConfig.cartAddEndpoint),
             headers: await _getHeaders(),
             body: jsonEncode({
               'product_id': productId,
@@ -193,7 +191,8 @@ class CartService {
       final response = await http
           .patch(
             Uri.parse(
-              '${ApiConfig.baseUrl}/cart/$productId?quantity=$quantity',
+              ApiConfig.buildUrl(
+                  ApiConfig.cartUpdatePath(productId, quantity: quantity)),
             ),
             headers: await _getHeaders(),
           )
@@ -222,7 +221,7 @@ class CartService {
     try {
       final response = await http
           .delete(
-            Uri.parse('${ApiConfig.baseUrl}/cart/$productId'),
+            ApiConfig.buildUri(ApiConfig.cartItemPath(productId)),
             headers: await _getHeaders(),
           )
           .timeout(const Duration(seconds: 30));
@@ -250,7 +249,7 @@ class CartService {
     try {
       final response = await http
           .delete(
-            Uri.parse('${ApiConfig.baseUrl}/cart/'),
+            ApiConfig.buildUri(ApiConfig.cartEndpoint),
             headers: await _getHeaders(),
           )
           .timeout(const Duration(seconds: 30));

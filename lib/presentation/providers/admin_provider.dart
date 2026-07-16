@@ -1,13 +1,13 @@
-// presentation/providers/admin_provider.dart
-
 import 'dart:async';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import '../../core/error/error_handler.dart';
-import '../../core/error/failure.dart';
 import '../../core/utils/logger.dart';
+import 'package:flutter/material.dart';
+import '../../core/error/failure.dart';
+import 'package:flutter/foundation.dart';
+import '../../core/config/api_config.dart';
 import '../../data/models/order_model.dart';
+import '../../core/error/error_handler.dart';
 import '../../data/services/api_service.dart';
+// presentation/providers/admin_provider.dart
 
 class AdminProvider with ChangeNotifier {
   final ApiService _api = ApiService();
@@ -22,7 +22,12 @@ class AdminProvider with ChangeNotifier {
   static const Duration _retryDelay = Duration(milliseconds: 500);
 
   static const List<String> _validStatuses = [
-    'pending', 'confirmed', 'preparing', 'shipped', 'delivered', 'cancelled',
+    'pending',
+    'confirmed',
+    'preparing',
+    'shipped',
+    'delivered',
+    'cancelled',
   ];
 
   static const Map<String, List<String>> _allowedTransitions = {
@@ -52,6 +57,15 @@ class AdminProvider with ChangeNotifier {
 
   void _clearError() {
     _errorMsg = null;
+  }
+
+  void _refreshSummary() {
+    _pendingOrders = _orders.where((o) => o.status == 'pending').length;
+    _todaySales = _orders
+        .where((o) => o.status == 'delivered')
+        .fold(0.0, (s, o) => s + (o.total.isFinite ? o.total : 0));
+
+    if (_todaySales.isNaN || _todaySales.isInfinite) _todaySales = 0.0;
   }
 
   void _handleFailure(Failure failure) {
@@ -85,7 +99,8 @@ class AdminProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await _withNetworkFallback(() => _api.get('/admin/orders'));
+      final response = await _withNetworkFallback(
+          () => _api.get(ApiConfig.adminOrdersEndpoint));
 
       if (response is! List) throw Exception('invalid_response');
 
@@ -109,12 +124,7 @@ class AdminProvider with ChangeNotifier {
       }
 
       _orders = parsed;
-      _pendingOrders = _orders.where((o) => o.status == 'pending').length;
-      _todaySales = _orders
-          .where((o) => o.status == 'delivered')
-          .fold(0.0, (s, o) => s + (o.total.isFinite ? o.total : 0));
-
-      if (_todaySales.isNaN || _todaySales.isInfinite) _todaySales = 0.0;
+      _refreshSummary();
 
       if (kDebugMode) {
         AppLogger.debug('AdminProvider: Admin cargó ${_orders.length} pedidos');
@@ -175,34 +185,29 @@ class AdminProvider with ChangeNotifier {
 
     final originalOrder = current;
     _orders[index] = current.copyWith(status: normalized);
-    _pendingOrders = _orders.where((o) => o.status == 'pending').length;
-    _todaySales = _orders
-        .where((o) => o.status == 'delivered')
-        .fold(0.0, (s, o) => s + (o.total.isFinite ? o.total : 0));
+    _refreshSummary();
     notifyListeners();
 
     try {
       await _withNetworkFallback(() => _api.patch(
-        '/admin/orders/$orderId/status',
-        {'status': normalized},
-      ));
+            ApiConfig.adminOrderStatusPath(orderId),
+            {'status': normalized},
+          ));
 
       if (kDebugMode) {
-        AppLogger.debug('AdminProvider: Admin actualizó pedido #$orderId a $normalized');
+        AppLogger.debug(
+            'AdminProvider: Admin actualizó pedido #$orderId a $normalized');
       }
       return true;
     } catch (e) {
       // Rollback
       _orders[index] = originalOrder;
-      _pendingOrders = _orders.where((o) => o.status == 'pending').length;
-      _todaySales = _orders
-          .where((o) => o.status == 'delivered')
-          .fold(0.0, (s, o) => s + (o.total.isFinite ? o.total : 0));
-      
+      _refreshSummary();
       final failure = ErrorHandler.handleError(e);
       _handleFailure(failure);
       if (kDebugMode) {
-        AppLogger.error('AdminProvider: Error actualizando pedido #$orderId: $e');
+        AppLogger.error(
+            'AdminProvider: Error actualizando pedido #$orderId: $e');
       }
       notifyListeners();
       return false;

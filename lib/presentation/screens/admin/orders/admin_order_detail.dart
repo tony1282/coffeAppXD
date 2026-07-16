@@ -16,7 +16,6 @@ import '../../../../presentation/widgets/admin/orders/admin_order_payment.dart';
 import '../../../../presentation/widgets/order/order_detail_status_stopper.dart';
 // lib/presentation/screens/admin/orders/admin_order_detail.dart
 
-
 class AdminOrderDetail extends StatefulWidget {
   final int? orderId;
 
@@ -57,7 +56,8 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
     final confirmed = await CustomDialogs.showConfirm(
       context: context,
       title: 'Cancelar pedido',
-      message: '¿Cancelar el pedido #$orderId?\n\nSe devolverá el stock de los productos.',
+      message:
+          '¿Cancelar el pedido #$orderId?\n\nSe devolverá el stock de los productos.',
       confirmText: 'Cancelar pedido',
       cancelText: 'No cancelar',
       confirmColor: AppColors.error,
@@ -192,49 +192,54 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
             final isCancelled = order.status == 'cancelled';
             final isDelivered = order.status == 'delivered';
 
+            final width = MediaQuery.of(context).size.width;
+            final horizontalPadding = width >= 700 ? 24.0 : 16.0;
+
             return Column(
               children: [
                 OrderDetailHeader(order: order),
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                    padding: EdgeInsets.fromLTRB(
+                        horizontalPadding, 20, horizontalPadding, 24),
                     children: [
                       OrderDetailStatusStepper(currentStatus: order.status),
                       const SizedBox(height: 22),
-
-                      if (!isLast && !_isProcessing && !isCancelled && !isDelivered)
+                      if (!isLast &&
+                          !_isProcessing &&
+                          !isCancelled &&
+                          !isDelivered)
                         _buildAdvanceButton(statusIdx),
-                      if (!isLast && !_isProcessing && !isCancelled && !isDelivered)
+                      if (!isLast &&
+                          !_isProcessing &&
+                          !isCancelled &&
+                          !isDelivered)
                         const SizedBox(height: 22),
-
                       OrderDetailMap(
-                        address: order.deliveryAddress ?? 'Dirección no especificada',
+                        address: order.deliveryAddress ??
+                            'Dirección no especificada',
                         lat: order.deliveryLat ?? 19.4326,
                         lng: order.deliveryLng ?? -99.1332,
                       ),
                       const SizedBox(height: 18),
-
                       OrderDetailSection(
                         title: 'Cliente',
                         icon: Icons.person_rounded,
                         child: AdminOrderInfo(order: order),
                       ),
                       const SizedBox(height: 14),
-
                       OrderDetailSection(
                         title: 'Productos',
                         icon: Icons.coffee_rounded,
                         child: AdminOrderItems(order: order),
                       ),
                       const SizedBox(height: 14),
-
                       OrderDetailSection(
                         title: 'Pago',
                         icon: Icons.payment_rounded,
                         child: AdminOrderPayment(order: order),
                       ),
                       const SizedBox(height: 14),
-
                       if (order.notes != null && order.notes!.isNotEmpty) ...[
                         OrderDetailSection(
                           title: 'Notas del cliente',
@@ -243,7 +248,6 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
                         ),
                         const SizedBox(height: 14),
                       ],
-
                       if (!isCancelled && !isDelivered) _buildCancelButton(),
                       const SizedBox(height: 20),
                     ],

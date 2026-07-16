@@ -1,7 +1,6 @@
-// lib/presentation/widgets/home/cart_bar.dart
-
-import 'package:coffe_app/core/config/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:coffe_app/core/config/constants.dart';
+// lib/presentation/widgets/home/cart_bar.dart
 
 class CartBar extends StatefulWidget {
   final int itemCount;
@@ -34,10 +33,13 @@ class _CartBarState extends State<CartBar> {
 
   @override
   Widget build(BuildContext context) {
+    final horizontalPadding =
+        MediaQuery.of(context).size.width > 700 ? 24.0 : 16.0;
+
     return GestureDetector(
       onTap: _handleTap,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        margin: EdgeInsets.fromLTRB(horizontalPadding, 4, horizontalPadding, 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: AppColors.primary,

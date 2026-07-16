@@ -18,7 +18,6 @@ import '../../../../presentation/widgets/products/form/product_category_picker.d
 import '../../../../presentation/widgets/products/form/product_availability_section.dart';
 // lib/presentation/screens/admin/products/admin_product_form.dart
 
-
 class AdminProductForm extends StatefulWidget {
   const AdminProductForm({super.key, this.product});
 
@@ -168,7 +167,8 @@ class _AdminProductFormState extends State<AdminProductForm> {
     setState(() => _isSubmitting = false);
 
     if (ok) {
-      final message = _isEditing ? 'Producto actualizado ✓' : 'Producto creado ✓';
+      final message =
+          _isEditing ? 'Producto actualizado ✓' : 'Producto creado ✓';
       CustomDialogs.showSuccess(context, message);
       Navigator.of(context).pop(true);
     } else {
@@ -181,6 +181,9 @@ class _AdminProductFormState extends State<AdminProductForm> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final horizontalPadding = width >= 700 ? 24.0 : 16.0;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -194,7 +197,8 @@ class _AdminProductFormState extends State<AdminProductForm> {
               child: Form(
                 key: _formKey,
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 22, 16, 32),
+                  padding: EdgeInsets.fromLTRB(
+                      horizontalPadding, 22, horizontalPadding, 32),
                   children: [
                     ProductSectionTitle(title: 'Información básica'),
                     const SizedBox(height: 12),

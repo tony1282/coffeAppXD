@@ -1,15 +1,14 @@
-// data/services/product_service.dart
-
+import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'package:firebase_auth/firebase_auth.dart';
-import '../../core/config/api_config.dart';
-import '../../core/error/exceptions.dart';
-import '../../core/error/error_messages.dart';
 import '../../core/utils/logger.dart';
 import '../models/product_model.dart';
+import 'package:http/http.dart' as http;
+import '../../core/error/exceptions.dart';
+import '../../core/config/api_config.dart';
+import '../../core/error/error_messages.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+// data/services/product_service.dart
 
 class ProductService {
   // ============================================================
@@ -83,7 +82,8 @@ class ProductService {
     } on http.ClientException catch (e) {
       throw NetworkException(e.message ?? ErrorMessages.noInternet);
     } on FirebaseAuthException catch (e) {
-      if ((e.code == 'user-token-expired' || e.code == 'id-token-expired') && maxRetries > 0) {
+      if ((e.code == 'user-token-expired' || e.code == 'id-token-expired') &&
+          maxRetries > 0) {
         final headers = await _getSecureHeaders();
         final response = await requestFn().timeout(
           const Duration(seconds: timeoutSeconds),
@@ -113,7 +113,8 @@ class ProductService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return null;
       }
-      throw ServerException(message: ErrorMessages.serverError, statusCode: response.statusCode);
+      throw ServerException(
+          message: ErrorMessages.serverError, statusCode: response.statusCode);
     }
 
     dynamic body;
@@ -124,16 +125,19 @@ class ProductService {
     }
 
     if (response.statusCode >= 500) {
-      throw ServerException(message: ErrorMessages.serverError, statusCode: response.statusCode);
+      throw ServerException(
+          message: ErrorMessages.serverError, statusCode: response.statusCode);
     }
     if (response.statusCode >= 400) {
-      throw ServerException(message: ErrorMessages.unknown, statusCode: response.statusCode);
+      throw ServerException(
+          message: ErrorMessages.unknown, statusCode: response.statusCode);
     }
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
     }
 
-    throw ServerException(message: ErrorMessages.unknown, statusCode: response.statusCode);
+    throw ServerException(
+        message: ErrorMessages.unknown, statusCode: response.statusCode);
   }
 
   // ============================================================
@@ -155,8 +159,13 @@ class ProductService {
     }
 
     const allowedFields = {
-      'name', 'description', 'price', 'category',
-      'image_url', 'available', 'stock'
+      'name',
+      'description',
+      'price',
+      'category',
+      'image_url',
+      'available',
+      'stock'
     };
     const maxNameLength = 100;
     const maxDescriptionLength = 1000;
@@ -254,7 +263,7 @@ class ProductService {
       final headers = await _getSecureHeaders();
       final response = await _safeRequest(
         () => http.get(
-          Uri.parse('${ApiConfig.baseUrl}/products/'),
+          ApiConfig.buildUri(ApiConfig.productsEndpoint),
           headers: headers,
         ),
         'GET /products',
@@ -296,7 +305,7 @@ class ProductService {
       final headers = await _getSecureHeaders();
       final response = await _safeRequest(
         () => http.get(
-          Uri.parse('${ApiConfig.baseUrl}/products/$validId'),
+          ApiConfig.buildUri(ApiConfig.productPath(validId)),
           headers: headers,
         ),
         'GET /products/$validId',
@@ -320,7 +329,7 @@ class ProductService {
       final headers = await _getSecureHeaders();
       final response = await _safeRequest(
         () => http.post(
-          Uri.parse('${ApiConfig.baseUrl}/products/'),
+          ApiConfig.buildUri(ApiConfig.productsEndpoint),
           headers: headers,
           body: jsonEncode(sanitizedData),
         ),
@@ -346,7 +355,7 @@ class ProductService {
       final headers = await _getSecureHeaders();
       final response = await _safeRequest(
         () => http.put(
-          Uri.parse('${ApiConfig.baseUrl}/products/$validId'),
+          ApiConfig.buildUri(ApiConfig.productPath(validId)),
           headers: headers,
           body: jsonEncode(sanitizedData),
         ),
@@ -371,7 +380,7 @@ class ProductService {
       final headers = await _getSecureHeaders();
       final response = await _safeRequest(
         () => http.delete(
-          Uri.parse('${ApiConfig.baseUrl}/products/$validId'),
+          ApiConfig.buildUri(ApiConfig.productPath(validId)),
           headers: headers,
         ),
         'DELETE /products/$validId',
@@ -398,14 +407,15 @@ class ProductService {
       final headers = await _getSecureHeaders();
       final response = await _safeRequest(
         () => http.patch(
-          Uri.parse('${ApiConfig.baseUrl}/products/$validId/availability'),
+          ApiConfig.buildUri(ApiConfig.productAvailabilityPath(validId)),
           headers: headers,
           body: jsonEncode({'available': available}),
         ),
         'PATCH /products/$validId/availability',
       );
 
-      final body = _validateResponse(response, 'PATCH /products/$validId/availability');
+      final body =
+          _validateResponse(response, 'PATCH /products/$validId/availability');
       return _parseProductSafely(body);
     } catch (e) {
       AppLogger.error('toggleAvailability($id, $available)', e);

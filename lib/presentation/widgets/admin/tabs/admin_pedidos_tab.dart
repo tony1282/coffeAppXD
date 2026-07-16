@@ -1,13 +1,12 @@
-// lib/presentation/widgets/admin/tabs/admin_pedidos_tab.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/config/constants.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/ui/custom_dialogs.dart';
+import '../../../screens/admin/orders/admin_order_detail.dart';
 import '../../../../presentation/providers/order_provider.dart';
 import '../../../../presentation/widgets/admin/dashboard_order_tile.dart';
-import '../../../screens/admin/orders/admin_order_detail.dart';
+// lib/presentation/widgets/admin/tabs/admin_pedidos_tab.dart
 
 class AdminPedidosTab extends StatefulWidget {
   final Future<void> Function() onRefresh;
@@ -23,17 +22,23 @@ class AdminPedidosTab extends StatefulWidget {
 
 class _AdminPedidosTabState extends State<AdminPedidosTab> {
   String _filtroPedidos = 'Todos';
+  String _vista = 'Hoy';
 
   final List<String> _filtros = [
-    'Todos', 'Pendiente', 'Preparando', 'Listo', 'En camino', 'Entregado'
+    'Todos',
+    'Pendiente',
+    'Preparando',
+    'Listo',
+    'En camino',
+    'Entregado'
   ];
 
   static const Map<String, String> _filtroToStatus = {
-    'Pendiente':  'pending',
+    'Pendiente': 'pending',
     'Preparando': 'confirmed',
-    'Listo':      'preparing',
-    'En camino':  'shipped',
-    'Entregado':  'delivered',
+    'Listo': 'preparing',
+    'En camino': 'shipped',
+    'Entregado': 'delivered',
   };
 
   void _openOrderDetail(int? orderId) {
@@ -49,13 +54,28 @@ class _AdminPedidosTabState extends State<AdminPedidosTab> {
     );
   }
 
+  bool _isSameDay(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<OrderProvider>(
       builder: (context, orderProvider, _) {
-        final lista = _filtroPedidos == 'Todos'
+        final porFecha = _vista == 'Hoy'
             ? orderProvider.orders
+                .where((o) => _isSameDay(o.createdAt))
+                .toList()
             : orderProvider.orders
+                .where((o) => !_isSameDay(o.createdAt))
+                .toList();
+
+        final lista = _filtroPedidos == 'Todos'
+            ? porFecha
+            : porFecha
                 .where((o) => o.status == _filtroToStatus[_filtroPedidos])
                 .toList();
 
@@ -64,6 +84,7 @@ class _AdminPedidosTabState extends State<AdminPedidosTab> {
           color: AppColors.primary,
           child: Column(
             children: [
+              _buildVistaSelector(),
               _buildFilterBar(),
               _buildOrderCounter(lista.length),
               Expanded(
@@ -89,6 +110,46 @@ class _AdminPedidosTabState extends State<AdminPedidosTab> {
     );
   }
 
+  Widget _buildVistaSelector() {
+    return Container(
+      color: AppColors.card,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      child: Row(
+        children: ['Hoy', 'Historial'].map((option) {
+          final active = _vista == option;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _vista = option),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: active ? AppColors.primary : AppColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: active
+                        ? AppColors.primary
+                        : AppColors.textGrey.withOpacity(0.2),
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    option,
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: active ? Colors.white : AppColors.textGrey,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Widget _buildFilterBar() {
     return Container(
       color: AppColors.card,
@@ -105,7 +166,8 @@ class _AdminPedidosTabState extends State<AdminPedidosTab> {
               onTap: () => setState(() => _filtroPedidos = _filtros[i]),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
                 decoration: BoxDecoration(
                   color: active ? AppColors.primary : AppColors.background,
                   borderRadius: BorderRadius.circular(20),

@@ -1,7 +1,6 @@
-// lib/core/config/order_status_config.dart
-
+import '../theme/colors.dart';
 import 'package:flutter/material.dart';
-import '../../../core/config/constants.dart';
+// lib/core/config/order_status_config.dart
 
 class OrderStatusConfig {
   // ─── FLUJO DE ESTADOS ──────────────────────────────────────

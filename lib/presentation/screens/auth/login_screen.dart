@@ -1,11 +1,11 @@
-// lib/presentation/screens/auth/login_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/config/constants.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/ui/custom_dialogs.dart';
 import '../../../presentation/providers/auth_provider.dart';
+// lib/presentation/screens/auth/login_screen.dart
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -182,6 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
+    final horizontalPadding = MediaQuery.of(context).size.width > 700 ? 36.0 : 24.0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -189,7 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const ClampingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 28),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           child: ConstrainedBox(
             constraints: BoxConstraints(
               minHeight: MediaQuery.of(context).size.height -
@@ -200,7 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 48),
+                  SizedBox(height: MediaQuery.of(context).size.height > 700 ? 48 : 24),
 
                   // ── Logo ──────────────────────────────────────
                   Row(

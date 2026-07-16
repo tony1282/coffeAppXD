@@ -65,6 +65,7 @@ class _AdminDashboardState extends State<AdminDashboard>
       await Future.wait([
         context.read<OrderProvider>().fetchOrders(),
         context.read<ProductProvider>().fetchProducts(),
+        context.read<SaleProvider>().fetchSales(periodo: 'dia'),
       ]);
     } catch (e) {
       if (mounted) {
@@ -91,6 +92,9 @@ class _AdminDashboardState extends State<AdminDashboard>
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isWide = width >= 900;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       // ── Menú hamburguesa ──────────────────────────────────────
@@ -125,7 +129,7 @@ class _AdminDashboardState extends State<AdminDashboard>
 
             // ── Indicador de sección actual (chip pequeño, solo visual) ──
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+              padding: EdgeInsets.fromLTRB(isWide ? 28 : 20, 14, isWide ? 28 : 20, 4),
               child: Row(
                 children: [
                   Icon(_tabIcons[_currentTab],
@@ -135,7 +139,7 @@ class _AdminDashboardState extends State<AdminDashboard>
                     _tabTitles[_currentTab],
                     style: TextStyle(
                       color: AppColors.textDark,
-                      fontSize: 18,
+                      fontSize: isWide ? 20 : 18,
                       fontWeight: FontWeight.w800,
                     ),
                   ),

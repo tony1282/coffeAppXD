@@ -1,26 +1,24 @@
-// lib/presentation/screens/orders/cart_screen.dart
-
-import 'package:coffe_app/data/models/order_model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_custom_tabs/flutter_custom_tabs.dart' as custom_tabs;
-import 'package:url_launcher/url_launcher.dart';
-
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/ui/custom_dialogs.dart';
-import '../../../presentation/providers/auth_provider.dart' as app_auth;
+import 'package:url_launcher/url_launcher.dart';
+import '../../widgets/cart/cart_item_tile.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../widgets/cart/cart_payment_row.dart';
+import '../../widgets/cart/cart_empty_state.dart';
+import '../../widgets/cart/cart_checkout_bar.dart';
+import '../../widgets/cart/cart_order_summary.dart';
+import '../../widgets/cart/cart_delivery_banner.dart';
+import '../../widgets/cart/payment_method_sheet.dart';
+import 'package:coffe_app/data/models/order_model.dart';
 import '../../../presentation/providers/cart_provider.dart';
 import '../../../presentation/providers/order_provider.dart';
 import '../../../presentation/providers/payment_provider.dart';
-import '../../widgets/cart/cart_delivery_banner.dart';
-import '../../widgets/cart/cart_item_tile.dart';
-import '../../widgets/cart/cart_order_summary.dart';
-import '../../widgets/cart/cart_payment_row.dart';
-import '../../widgets/cart/cart_checkout_bar.dart';
-import '../../widgets/cart/cart_empty_state.dart';
-import '../../widgets/cart/payment_method_sheet.dart';
+import '../../../presentation/providers/auth_provider.dart' as app_auth;
+import 'package:flutter_custom_tabs/flutter_custom_tabs.dart' as custom_tabs;
+// lib/presentation/screens/orders/cart_screen.dart
 
 class CartScreen extends StatefulWidget {
   final List<CartItem> cartItems;
@@ -61,8 +59,7 @@ class _CartScreenState extends State<CartScreen> {
     _selectedMethod = _paymentMethod;
   }
 
-  double get _total =>
-      _items.fold(0.0, (sum, item) => sum + item.subtotal);
+  double get _total => _items.fold(0.0, (sum, item) => sum + item.subtotal);
 
   void _removeItem(int index) {
     if (!mounted) return;
@@ -110,8 +107,7 @@ class _CartScreenState extends State<CartScreen> {
     return await CustomDialogs.showConfirm(
           context: context,
           title: 'Confirmar pedido',
-          message:
-              'Total a pagar: \$${_total.toStringAsFixed(2)}\n\n'
+          message: 'Total a pagar: \$${_total.toStringAsFixed(2)}\n\n'
               'Método de pago: Tarjeta\n\n'
               '¿Confirmas este pedido?',
           confirmText: 'Confirmar',
@@ -168,7 +164,8 @@ class _CartScreenState extends State<CartScreen> {
   // ────────────────────────────────────────────────────────────────
   // 🔥 VERIFICAR DIRECTAMENTE EN MERCADO PAGO
   // ────────────────────────────────────────────────────────────────
-  Future<Map<String, dynamic>> _verifyDirectlyWithMercadoPago(String preferenceId) async {
+  Future<Map<String, dynamic>> _verifyDirectlyWithMercadoPago(
+      String preferenceId) async {
     final paymentProvider = context.read<PaymentProvider>();
     return await paymentProvider.verifyPayment(preferenceId);
   }
@@ -181,39 +178,45 @@ class _CartScreenState extends State<CartScreen> {
     String userId,
   ) async {
     int attempts = 0;
-    
+
     while (attempts < _maxVerificationAttempts) {
       await Future.delayed(const Duration(seconds: 3));
       attempts++;
-      
+
       // Refrescar pedidos
       final orderProvider = context.read<OrderProvider>();
       await orderProvider.fetchOrders();
-      
+
       // Buscar el pedido más reciente del usuario
       final orders = orderProvider.orders;
       final newOrder = orders.cast<Order?>().firstWhere(
-        (o) => o?.userId == userId && o?.paymentStatus != 'failed' && o?.paymentStatus != 'rejected',
-        orElse: () => orders.firstOrNull,
-      );
-      
-      if (newOrder != null && (newOrder.paymentStatus == 'completed' || newOrder.paymentStatus == 'paid')) {
+            (o) =>
+                o?.userId == userId &&
+                o?.paymentStatus != 'failed' &&
+                o?.paymentStatus != 'rejected',
+            orElse: () => orders.firstOrNull,
+          );
+
+      if (newOrder != null &&
+          (newOrder.paymentStatus == 'completed' ||
+              newOrder.paymentStatus == 'paid')) {
         return {
           'status': 'approved',
           'order_id': newOrder.id,
           'payment_status': newOrder.paymentStatus,
         };
       }
-      
+
       if (newOrder != null && newOrder.paymentStatus == 'pending') {
         // Si sigue pendiente después de varios intentos, verificar directamente
         if (attempts >= 3) {
-          final verification = await _verifyDirectlyWithMercadoPago(preferenceId);
+          final verification =
+              await _verifyDirectlyWithMercadoPago(preferenceId);
           return verification;
         }
       }
     }
-    
+
     // ⏰ Timeout - verificar directamente en MP
     return await _verifyDirectlyWithMercadoPago(preferenceId);
   }
@@ -221,7 +224,8 @@ class _CartScreenState extends State<CartScreen> {
   // ────────────────────────────────────────────────────────────────
   // 🔥 PROCESAR PAGO COMPLETO
   // ────────────────────────────────────────────────────────────────
-  Future<void> _processMercadoPagoPayment(Map<String, dynamic> orderData) async {
+  Future<void> _processMercadoPagoPayment(
+      Map<String, dynamic> orderData) async {
     final paymentProvider = context.read<PaymentProvider>();
     final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
@@ -258,7 +262,8 @@ class _CartScreenState extends State<CartScreen> {
             preferredBarTintColor: AppColors.primary,
             preferredControlTintColor: Colors.white,
             barCollapsingEnabled: true,
-            dismissButtonStyle: custom_tabs.SafariViewControllerDismissButtonStyle.close,
+            dismissButtonStyle:
+                custom_tabs.SafariViewControllerDismissButtonStyle.close,
           ),
         );
       } catch (e) {
@@ -356,7 +361,6 @@ class _CartScreenState extends State<CartScreen> {
               context, 'No se pudo confirmar el pago. Intenta de nuevo.');
         }
       }
-
     } catch (e) {
       print('❌ Error en pago: $e');
       if (mounted) {
@@ -399,18 +403,19 @@ class _CartScreenState extends State<CartScreen> {
 
       final orderData = {
         'user_id': userId,
-        'items': _items.map((item) => {
-          'product_id': item.product.id,
-          'product_name': item.product.name,
-          'quantity': item.quantity,
-          'price': item.product.price,
-        }).toList(),
+        'items': _items
+            .map((item) => {
+                  'product_id': item.product.id,
+                  'product_name': item.product.name,
+                  'quantity': item.quantity,
+                  'price': item.product.price,
+                })
+            .toList(),
         'total': _total,
         'delivery_address': 'Calle Principal 123',
       };
 
       await _processMercadoPagoPayment(orderData);
-
     } catch (e) {
       if (mounted) {
         CustomDialogs.showError(
@@ -444,6 +449,9 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isWide = width >= 900;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -537,9 +545,11 @@ class _CartScreenState extends State<CartScreen> {
                         ListView.separated(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: isWide ? 24 : 16),
                           itemCount: _items.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             return CartItemTile(
                               item: _items[index],

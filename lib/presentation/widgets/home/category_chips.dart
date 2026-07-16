@@ -1,5 +1,5 @@
-import 'package:coffe_app/core/config/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:coffe_app/core/config/constants.dart';
 
 class CategoryChips extends StatelessWidget {
   final List<String> categories;
@@ -32,10 +32,13 @@ class CategoryChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final horizontalPadding =
+        MediaQuery.of(context).size.width > 700 ? 24.0 : 16.0;
+
     return SizedBox(
       height: 38,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),

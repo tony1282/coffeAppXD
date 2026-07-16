@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'api_service.dart';
 import '../models/user_model.dart';
+import '../../core/config/api_config.dart';
 import '../../core/error/exceptions.dart';
 import '../../core/utils/validators.dart';
 import '../../core/error/error_messages.dart';
@@ -317,7 +318,7 @@ class AuthService {
 
     try {
       // ✅ ENVIAR NOMBRE Y EMAIL EN EL BODY
-      await _api.post('/auth/firebase/', {
+      await _api.post(ApiConfig.authFirebaseEndpoint, {
         'id_token': idToken,
         'name': name ?? user.displayName ?? '',
         'email': email ?? user.email ?? '',

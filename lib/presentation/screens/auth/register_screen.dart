@@ -1,11 +1,10 @@
-// lib/presentation/screens/auth/register_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/config/constants.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/ui/custom_dialogs.dart';
 import '../../../presentation/providers/auth_provider.dart';
+// lib/presentation/screens/auth/register_screen.dart
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -42,7 +41,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String? _validateEmail(String value) {
     if (value.trim().isEmpty) return 'El correo es obligatorio';
-    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$');
+    final emailRegex =
+        RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$');
     if (!emailRegex.hasMatch(value.trim())) return 'Correo inválido';
     return null;
   }
@@ -57,7 +57,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String? _validatePassword(String value) {
     if (value.isEmpty) return 'La contraseña es obligatoria';
-    if (value.length < 6) return 'La contraseña debe tener al menos 6 caracteres';
+    if (value.length < 6)
+      return 'La contraseña debe tener al menos 6 caracteres';
     if (value.length > 128) return 'La contraseña es demasiado larga';
     return null;
   }
@@ -89,7 +90,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
     if (!_acceptTerms) {
-      CustomDialogs.showError(context, 'Debes aceptar los términos y condiciones');
+      CustomDialogs.showError(
+          context, 'Debes aceptar los términos y condiciones');
       return;
     }
 
@@ -123,6 +125,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final isLoading = _isLoading || auth.isLoading;
+    final horizontalPadding =
+        MediaQuery.of(context).size.width > 700 ? 36.0 : 24.0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -134,7 +138,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       body: SingleChildScrollView(
         physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 28),
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -228,8 +232,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 Expanded(
                   child: GestureDetector(
-                    onTap: () =>
-                        setState(() => _acceptTerms = !_acceptTerms),
+                    onTap: () => setState(() => _acceptTerms = !_acceptTerms),
                     child: Text(
                       'Acepto los términos y condiciones',
                       style: AppTextStyles.bodyMedium,

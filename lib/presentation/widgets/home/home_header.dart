@@ -1,7 +1,6 @@
-// lib/widgets/home/home_header.dart
-
-import 'package:coffe_app/core/config/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:coffe_app/core/config/constants.dart';
+// lib/widgets/home/home_header.dart
 
 class HomeHeader extends StatelessWidget {
   final VoidCallback onSearchTap;
@@ -15,8 +14,11 @@ class HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final horizontalPadding =
+        MediaQuery.of(context).size.width > 700 ? 24.0 : 16.0;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 16, horizontalPadding, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

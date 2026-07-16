@@ -1,6 +1,6 @@
-import 'package:coffe_app/core/config/constants.dart';
 import 'package:flutter/material.dart';
 import '../../../data/models/product_model.dart';
+import 'package:coffe_app/core/config/constants.dart';
 
 class ProductGrid extends StatelessWidget {
   final List<ProductModel> products;
@@ -30,14 +30,26 @@ class ProductGrid extends StatelessWidget {
       );
     }
 
+    final width = MediaQuery.of(context).size.width;
+    final crossAxisCount = width >= 900
+        ? 3
+        : width >= 600
+            ? 2
+            : 2;
+    final childAspectRatio = width >= 900
+        ? 0.74
+        : width >= 600
+            ? 0.76
+            : 0.72;
+
     return GridView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       itemCount: products.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.72,
+        childAspectRatio: childAspectRatio,
       ),
       itemBuilder: (_, index) {
         final p = products[index];
@@ -94,8 +106,7 @@ class _ProductCard extends StatelessWidget {
                             height: 120,
                             color: Colors.grey.shade100,
                             child: const Center(
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           ),
                     errorBuilder: (_, __, ___) => Container(
@@ -111,8 +122,8 @@ class _ProductCard extends StatelessWidget {
                   bottom: 8,
                   left: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.92),
                       borderRadius: BorderRadius.circular(20),
@@ -136,8 +147,8 @@ class _ProductCard extends StatelessWidget {
                     child: CircleAvatar(
                       radius: 16,
                       backgroundColor: AppColors.primary,
-                      child: const Icon(Icons.add,
-                          color: Colors.white, size: 18),
+                      child:
+                          const Icon(Icons.add, color: Colors.white, size: 18),
                     ),
                   ),
                 ),

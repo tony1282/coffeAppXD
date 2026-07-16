@@ -1,14 +1,13 @@
-// lib/data/services/refund_service.dart
-
-import 'dart:convert';
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
-import '../../core/config/api_config.dart';
-import '../../core/error/exceptions.dart';
-import '../../core/error/error_messages.dart';
+import 'dart:convert';
 import '../../core/utils/logger.dart';
 import '../models/payment_model.dart';
+import 'package:http/http.dart' as http;
+import '../../core/error/exceptions.dart';
+import '../../core/config/api_config.dart';
+import '../../core/error/error_messages.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+// lib/data/services/refund_service.dart
 
 class RefundService {
   Future<Map<String, String>> _getSecureHeaders() async {
@@ -43,10 +42,12 @@ class RefundService {
 
     try {
       // ✅ CORREGIDO: Cambiar /orders/$orderId/payments/ por /payments/order/$orderId/
-      final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/payments/order/$orderId/'),
-        headers: headers,
-      ).timeout(const Duration(seconds: 30));
+      final response = await http
+          .get(
+            ApiConfig.buildUri(ApiConfig.paymentOrderPath(orderId)),
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 401) {
         throw AuthException(ErrorMessages.sessionExpired);
@@ -62,7 +63,7 @@ class RefundService {
       }
 
       final data = jsonDecode(response.body);
-      
+
       // El backend devuelve una lista de pagos
       if (data is! List) {
         // Si devuelve un objeto, lo envolvemos en una lista
@@ -95,11 +96,12 @@ class RefundService {
     String? reason,
   }) async {
     if (amount <= 0) {
-      throw ServerException(message: 'El monto a reembolsar debe ser mayor a 0');
+      throw ServerException(
+          message: 'El monto a reembolsar debe ser mayor a 0');
     }
 
     final headers = await _getSecureHeaders();
-    
+
     final body = jsonEncode({
       'payment_id': paymentId,
       'amount': amount,
@@ -107,11 +109,13 @@ class RefundService {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/payments/refund/'),
-        headers: headers,
-        body: body,
-      ).timeout(const Duration(seconds: 30));
+      final response = await http
+          .post(
+            ApiConfig.buildUri(ApiConfig.paymentsRefundEndpoint),
+            headers: headers,
+            body: body,
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 401) {
         throw AuthException(ErrorMessages.sessionExpired);
@@ -137,11 +141,11 @@ class RefundService {
       }
 
       final data = jsonDecode(response.body);
-      
+
       if (data['payment'] is Map<String, dynamic>) {
         return Payment.fromJson(data['payment']);
       }
-      
+
       if (data is Map<String, dynamic> && data.containsKey('id')) {
         return Payment.fromJson(data);
       }

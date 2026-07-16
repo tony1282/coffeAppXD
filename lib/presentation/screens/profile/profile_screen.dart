@@ -1,11 +1,10 @@
-// lib/presentation/screens/profile/profile_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/ui/custom_dialogs.dart';
 import '../../../presentation/providers/auth_provider.dart';
+// lib/presentation/screens/profile/profile_screen.dart
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -33,7 +32,8 @@ class ProfileScreen extends StatelessWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        CustomDialogs.showError(context, 'Error al cerrar sesión. Intenta de nuevo.');
+        CustomDialogs.showError(
+            context, 'Error al cerrar sesión. Intenta de nuevo.');
       }
     }
   }
@@ -53,7 +53,8 @@ class ProfileScreen extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     final user = auth.userModel;
 
-    final nombre = (user?.userName ?? '').isNotEmpty ? user!.userName : 'Usuario';
+    final nombre =
+        (user?.userName ?? '').isNotEmpty ? user!.userName : 'Usuario';
     final email = user?.userEmail ?? 'Sin correo registrado';
     final foto = user?.photoUrl ?? '';
     final rol = user?.rol ?? 'cliente';
@@ -72,7 +73,9 @@ class ProfileScreen extends StatelessWidget {
         elevation: 0,
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        padding: EdgeInsets.symmetric(
+            horizontal: MediaQuery.of(context).size.width > 700 ? 32 : 24,
+            vertical: 16),
         children: [
           // ── Avatar ──────────────────────────────────────────────
           Center(
@@ -149,7 +152,9 @@ class ProfileScreen extends StatelessWidget {
           _Tile(
             icon: Icons.shield_outlined,
             label: 'Rol',
-            value: rol.isNotEmpty ? '${rol[0].toUpperCase()}${rol.substring(1)}' : 'Cliente',
+            value: rol.isNotEmpty
+                ? '${rol[0].toUpperCase()}${rol.substring(1)}'
+                : 'Cliente',
           ),
           const SizedBox(height: 28),
           const Divider(color: AppColors.divider),

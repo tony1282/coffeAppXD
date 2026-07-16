@@ -1,17 +1,16 @@
-// lib/presentation/screens/orders/order_history_screen.dart
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart';
 import '../../../core/theme/colors.dart';
+import '../../../core/utils/logger.dart';
 import '../../../core/theme/text_styles.dart';
 import '../../../core/ui/custom_dialogs.dart';
-import '../../../core/utils/logger.dart';
 import '../../../presentation/providers/auth_provider.dart';
 import '../../../presentation/providers/order_provider.dart';
 import '../../../presentation/widgets/order_history/order_card.dart';
-import '../../../presentation/widgets/order_history/order_detail_bottom_sheet.dart';
 import '../../../presentation/widgets/order_history/order_empty_state.dart';
+import '../../../presentation/widgets/order_history/order_detail_bottom_sheet.dart';
+// lib/presentation/screens/orders/order_history_screen.dart
 
 class OrderHistoryScreen extends StatefulWidget {
   const OrderHistoryScreen({super.key});
@@ -57,7 +56,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     if (userId != null && userId.isNotEmpty) {
       await context.read<OrderProvider>().fetchOrders(userId: userId);
     } else if (mounted) {
-      CustomDialogs.showError(context, 'Debes iniciar sesión para ver tus pedidos');
+      CustomDialogs.showError(
+          context, 'Debes iniciar sesión para ver tus pedidos');
     }
   }
 
@@ -209,9 +209,10 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                         onRefresh: _refreshOrders,
                         color: AppColors.primary,
                         child: ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                          padding: EdgeInsets.fromLTRB(16, 16, 16, 32),
                           itemCount: filtered.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
                           itemBuilder: (context, index) {
                             final order = filtered[index];
                             return OrderCard(

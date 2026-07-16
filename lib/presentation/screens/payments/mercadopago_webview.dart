@@ -1,3 +1,9 @@
+import 'package:flutter/material.dart';
+import '../../../core/theme/colors.dart';
+import '../../../core/config/api_config.dart';
+import '../../../core/theme/text_styles.dart';
+import '../../../core/security/payment_result.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 // lib/presentation/screens/payments/mercadopago_webview.dart
 //
 // Reemplaza _MercadoPagoWebView (clase privada en cart_screen).
@@ -6,13 +12,6 @@
 //   - Loading indicator mientras carga el checkout
 //   - Manejo de error de carga de página
 //   - Resultado tipado con PaymentResult
-
-import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import '../../../core/config/api_config.dart';
-import '../../../core/security/payment_result.dart';
-import '../../../core/theme/colors.dart';
-import '../../../core/theme/text_styles.dart';
 
 class MercadoPagoWebView extends StatefulWidget {
   final String url;
@@ -64,24 +63,25 @@ class _MercadoPagoWebViewState extends State<MercadoPagoWebView> {
           onWebResourceError: (error) {
             // Solo marcar error en fallos del documento principal
             if (error.isForMainFrame == true) {
-              if (mounted) setState(() {
-                _isPageLoading = false;
-                _hasLoadError = true;
-              });
+              if (mounted)
+                setState(() {
+                  _isPageLoading = false;
+                  _hasLoadError = true;
+                });
             }
           },
           onUrlChange: (change) => _handleUrlChange(change.url),
-
           onNavigationRequest: (request) {
-  final url = request.url;
-  if (url.startsWith(_successUrl) ||
-      url.startsWith(_failureUrl) ||
-      url.startsWith(_pendingUrl)) {
-    _handleUrlChange(url);
-    return NavigationDecision.prevent; // ← bloquea que el WebView cargue la página
-  }
-  return NavigationDecision.navigate;
-},
+            final url = request.url;
+            if (url.startsWith(_successUrl) ||
+                url.startsWith(_failureUrl) ||
+                url.startsWith(_pendingUrl)) {
+              _handleUrlChange(url);
+              return NavigationDecision
+                  .prevent; // ← bloquea que el WebView cargue la página
+            }
+            return NavigationDecision.navigate;
+          },
         ),
       )
       ..loadRequest(Uri.parse(widget.url));
@@ -109,6 +109,9 @@ class _MercadoPagoWebViewState extends State<MercadoPagoWebView> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isWide = width >= 700;
+
     return PopScope(
       // Confirmar si el usuario intenta cerrar con el botón atrás
       canPop: false,
@@ -127,9 +130,10 @@ class _MercadoPagoWebViewState extends State<MercadoPagoWebView> {
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Pagar con Mercado Pago',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                    fontSize: isWide ? 18 : 16, fontWeight: FontWeight.w700),
               ),
               Text(
                 'Pedido #${widget.orderId}',
@@ -154,13 +158,14 @@ class _MercadoPagoWebViewState extends State<MercadoPagoWebView> {
             if (!_hasLoadError) WebViewWidget(controller: _controller),
 
             // ── Error de carga ──
-            if (_hasLoadError) _ErrorView(onRetry: () {
-              setState(() {
-                _hasLoadError = false;
-                _isPageLoading = true;
-              });
-              _controller.loadRequest(Uri.parse(widget.url));
-            }),
+            if (_hasLoadError)
+              _ErrorView(onRetry: () {
+                setState(() {
+                  _hasLoadError = false;
+                  _isPageLoading = true;
+                });
+                _controller.loadRequest(Uri.parse(widget.url));
+              }),
 
             // ── Loading overlay ──
             if (_isPageLoading && !_hasLoadError)

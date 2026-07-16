@@ -1,15 +1,14 @@
-// lib/data/services/order_service.dart
-
+import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'package:firebase_auth/firebase_auth.dart';
-import '../../core/config/api_config.dart';
-import '../../core/error/exceptions.dart';
-import '../../core/error/error_messages.dart';
-import '../../core/utils/logger.dart';
 import '../models/order_model.dart';
+import '../../core/utils/logger.dart';
+import 'package:http/http.dart' as http;
+import '../../core/error/exceptions.dart';
+import '../../core/config/api_config.dart';
+import '../../core/error/error_messages.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+// lib/data/services/order_service.dart
 
 class OrderService {
   Future<Map<String, String>> _getSecureHeaders() async {
@@ -77,7 +76,8 @@ class OrderService {
     } on http.ClientException catch (e) {
       throw NetworkException(e.message ?? ErrorMessages.noInternet);
     } on FirebaseAuthException catch (e) {
-      if ((e.code == 'user-token-expired' || e.code == 'id-token-expired') && maxRetries > 0) {
+      if ((e.code == 'user-token-expired' || e.code == 'id-token-expired') &&
+          maxRetries > 0) {
         final headers = await _getSecureHeaders();
         final response = await requestFn().timeout(
           const Duration(seconds: timeoutSeconds),
@@ -104,7 +104,8 @@ class OrderService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return null;
       }
-      throw ServerException(message: ErrorMessages.serverError, statusCode: response.statusCode);
+      throw ServerException(
+          message: ErrorMessages.serverError, statusCode: response.statusCode);
     }
 
     dynamic body;
@@ -115,16 +116,19 @@ class OrderService {
     }
 
     if (response.statusCode >= 500) {
-      throw ServerException(message: ErrorMessages.serverError, statusCode: response.statusCode);
+      throw ServerException(
+          message: ErrorMessages.serverError, statusCode: response.statusCode);
     }
     if (response.statusCode >= 400) {
-      throw ServerException(message: ErrorMessages.unknown, statusCode: response.statusCode);
+      throw ServerException(
+          message: ErrorMessages.unknown, statusCode: response.statusCode);
     }
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
     }
 
-    throw ServerException(message: ErrorMessages.unknown, statusCode: response.statusCode);
+    throw ServerException(
+        message: ErrorMessages.unknown, statusCode: response.statusCode);
   }
 
   int _validateOrderId(int? id) {
@@ -137,7 +141,12 @@ class OrderService {
   // ✅ SOLO INGLÉS
   String _validateStatus(String status) {
     const validStatuses = {
-      'pending', 'confirmed', 'preparing', 'shipped', 'delivered', 'cancelled',
+      'pending',
+      'confirmed',
+      'preparing',
+      'shipped',
+      'delivered',
+      'cancelled',
     };
     final normalized = status.trim().toLowerCase();
     if (!validStatuses.contains(normalized)) {
@@ -152,13 +161,13 @@ class OrderService {
   Future<List<Order>> getOrders() async {
     try {
       final headers = await _getSecureHeaders();
-      
+
       // ✅ SIEMPRE USAR /orders/ SIN FILTRO
       // El backend ya filtra por usuario usando el token
-      final url = '${ApiConfig.baseUrl}/orders/';
-      
+      final url = ApiConfig.buildUrl(ApiConfig.ordersEndpoint);
+
       print('🔍 [SERVICE] GET /orders - URL: $url');
-      
+
       final response = await _safeRequest(
         () => http.get(
           Uri.parse(url),
@@ -186,7 +195,7 @@ class OrderService {
           }
         }
       }
-      
+
       print('📦 [SERVICE] Pedidos obtenidos: ${orders.length}');
       return orders;
     } catch (e) {
@@ -205,7 +214,7 @@ class OrderService {
       final headers = await _getSecureHeaders();
       final response = await _safeRequest(
         () => http.get(
-          Uri.parse('${ApiConfig.baseUrl}/orders/$validId/'),
+          ApiConfig.buildUri(ApiConfig.orderPath(validId)),
           headers: headers,
         ),
         'GET /orders/$validId',
@@ -232,7 +241,12 @@ class OrderService {
       throw ServerException(message: ErrorMessages.badRequest);
     }
 
-    const allowedKeys = {'user_id', 'items', 'payment_method', 'delivery_address'};
+    const allowedKeys = {
+      'user_id',
+      'items',
+      'payment_method',
+      'delivery_address'
+    };
     final filteredData = Map<String, dynamic>.from(data);
     filteredData.removeWhere((key, value) => !allowedKeys.contains(key));
 
@@ -247,7 +261,7 @@ class OrderService {
       final headers = await _getSecureHeaders();
       final response = await _safeRequest(
         () => http.post(
-          Uri.parse('${ApiConfig.baseUrl}/orders/'),
+          ApiConfig.buildUri(ApiConfig.ordersEndpoint),
           headers: headers,
           body: jsonEncode(filteredData),
         ),
@@ -272,17 +286,17 @@ class OrderService {
   // ============================================================
   Future<Order> updateOrderStatus(int id, String status) async {
     print('🔍 [SERVICE] updateOrderStatus: id=$id, status="$status"');
-    
+
     final validId = _validateOrderId(id);
     final validStatus = _validateStatus(status);
 
     try {
       final headers = await _getSecureHeaders();
       print('🔍 [SERVICE] Headers obtenidos, enviando PATCH...');
-      
+
       final response = await _safeRequest(
         () => http.patch(
-          Uri.parse('${ApiConfig.baseUrl}/orders/$validId/status'),
+          ApiConfig.buildUri(ApiConfig.orderStatusPath(validId)),
           headers: headers,
           body: jsonEncode({'status': validStatus}),
         ),
@@ -290,7 +304,7 @@ class OrderService {
       );
 
       print('🔍 [SERVICE] Respuesta recibida: ${response.statusCode}');
-      
+
       final body = _validateResponse(response, 'PATCH /orders/$validId/status');
 
       if (body == null || body is! Map<String, dynamic>) {
@@ -314,11 +328,11 @@ class OrderService {
     try {
       final headers = await _getSecureHeaders();
       print('🔍 [SERVICE] Cancelando pedido $validId...');
-      
+
       // ✅ CAMBIAR A POST (coincide con el backend)
       final response = await _safeRequest(
         () => http.post(
-          Uri.parse('${ApiConfig.baseUrl}/orders/$validId/cancel'),
+          ApiConfig.buildUri(ApiConfig.orderCancelPath(validId)),
           headers: headers,
         ),
         'POST /orders/$validId/cancel',

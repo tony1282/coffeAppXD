@@ -1,12 +1,11 @@
-// lib/presentation/widgets/admin/tabs/admin_ventas_tab.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/config/constants.dart';
-import '../../../../core/theme/text_styles.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/theme/text_styles.dart';
 import '../../../../data/models/sale_model.dart';
 import '../../../../presentation/providers/sale_provider.dart';
+// lib/presentation/widgets/admin/tabs/admin_ventas_tab.dart
 
 class AdminVentasTab extends StatefulWidget {
   final Future<void> Function() onRefresh;
@@ -21,7 +20,12 @@ class _AdminVentasTabState extends State<AdminVentasTab> {
   String _filtroEstado = 'Todas';
   String _filtroPeriodo = 'dia';
 
-  static const _estadoFiltros = ['Todas', 'Completada', 'Pendiente', 'Cancelada'];
+  static const _estadoFiltros = [
+    'Todas',
+    'Completada',
+    'Pendiente',
+    'Cancelada'
+  ];
   static const _periodos = [
     ('dia', 'Hoy'),
     ('semana', 'Semana'),
@@ -55,9 +59,13 @@ class _AdminVentasTabState extends State<AdminVentasTab> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isCompact = width < 600;
+
     return Consumer<SaleProvider>(
       builder: (context, provider, _) {
-        final filtered = _filtered(provider.sales);
+        final periodSales = provider.salesForPeriodo(_filtroPeriodo);
+        final filtered = _filtered(periodSales);
 
         return RefreshIndicator(
           onRefresh: () async {
@@ -66,8 +74,8 @@ class _AdminVentasTabState extends State<AdminVentasTab> {
           color: AppColors.primary,
           child: CustomScrollView(
             slivers: [
-              SliverToBoxAdapter(child: _buildPeriodoBar()),
-              SliverToBoxAdapter(child: _buildCorteCaja(provider)),
+              SliverToBoxAdapter(child: _buildPeriodoBar(isCompact)),
+              SliverToBoxAdapter(child: _buildCorteCaja(provider, isCompact)),
               SliverToBoxAdapter(child: _buildEstadoBar()),
               SliverToBoxAdapter(
                 child: Padding(
@@ -104,14 +112,17 @@ class _AdminVentasTabState extends State<AdminVentasTab> {
     );
   }
 
-  Widget _buildPeriodoBar() {
+  Widget _buildPeriodoBar(bool isCompact) {
     return Container(
       color: AppColors.card,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      child: Row(
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
         children: _periodos.map((p) {
           final active = _filtroPeriodo == p.$1;
-          return Expanded(
+          return SizedBox(
+            width: isCompact ? double.infinity : null,
             child: GestureDetector(
               onTap: () => _onPeriodoChange(p.$1),
               child: AnimatedContainer(
@@ -144,7 +155,7 @@ class _AdminVentasTabState extends State<AdminVentasTab> {
     );
   }
 
-  Widget _buildCorteCaja(SaleProvider provider) {
+  Widget _buildCorteCaja(SaleProvider provider, bool isCompact) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
       padding: const EdgeInsets.all(16),
@@ -170,42 +181,57 @@ class _AdminVentasTabState extends State<AdminVentasTab> {
             ],
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              _CajaItem(
-                label: 'Total ventas',
-                value: Formatters.currency(provider.totalVentas),
-                icon: Icons.attach_money_rounded,
-              ),
-              const SizedBox(width: 10),
-              _CajaItem(
-                label: 'Efectivo',
-                value: Formatters.currency(provider.totalEfectivo),
-                icon: Icons.payments_rounded,
-              ),
-              const SizedBox(width: 10),
-              _CajaItem(
-                label: 'Tarjeta',
-                value: Formatters.currency(provider.totalTarjeta),
-                icon: Icons.credit_card_rounded,
-              ),
-            ],
-          ),
+          if (isCompact)
+            Column(
+              children: [
+                _CajaItem(
+                  label: 'Total ventas',
+                  value: Formatters.currency(provider.totalVentas),
+                  icon: Icons.attach_money_rounded,
+                ),
+                const SizedBox(height: 8),
+                _CajaItem(
+                  label: 'Tarjeta',
+                  value: Formatters.currency(provider.totalTarjeta),
+                  icon: Icons.credit_card_rounded,
+                ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: _CajaItem(
+                    label: 'Total ventas',
+                    value: Formatters.currency(provider.totalVentas),
+                    icon: Icons.attach_money_rounded,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _CajaItem(
+                    label: 'Tarjeta',
+                    value: Formatters.currency(provider.totalTarjeta),
+                    icon: Icons.credit_card_rounded,
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               _StatChip(
                 label: 'Completadas',
                 count: provider.completadas.length,
                 color: Colors.greenAccent,
               ),
-              const SizedBox(width: 8),
               _StatChip(
                 label: 'Pendientes',
                 count: provider.pendientes.length,
                 color: Colors.orangeAccent,
               ),
-              const SizedBox(width: 8),
               _StatChip(
                 label: 'Canceladas',
                 count: provider.canceladas.length,
@@ -271,8 +297,7 @@ class _AdminVentasTabState extends State<AdminVentasTab> {
           const SizedBox(height: 12),
           Text(
             'No hay ventas en este período',
-            style:
-                AppTextStyles.bodyMedium.copyWith(color: AppColors.textGrey),
+            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textGrey),
           ),
         ],
       ),
@@ -298,6 +323,9 @@ class _SaleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isCompact = width < 600;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -314,8 +342,7 @@ class _SaleTile extends StatelessWidget {
               color: _statusColor().withOpacity(0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.receipt_rounded,
-                color: _statusColor(), size: 20),
+            child: Icon(Icons.receipt_rounded, color: _statusColor(), size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -324,12 +351,15 @@ class _SaleTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      sale.id != null ? 'Venta #${sale.id}' : 'Venta',
-                      style: AppTextStyles.bodyLarge
-                          .copyWith(fontWeight: FontWeight.w700),
+                    Expanded(
+                      child: Text(
+                        sale.id != null ? 'Venta #${sale.id}' : 'Venta',
+                        style: AppTextStyles.bodyLarge
+                            .copyWith(fontWeight: FontWeight.w700),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     Text(
                       Formatters.currency(sale.totalVenta),
                       style: AppTextStyles.bodyLarge.copyWith(
@@ -340,39 +370,73 @@ class _SaleTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text(
-                      Formatters.dateTime(sale.fechaVenta),
-                      style: AppTextStyles.labelSmall
-                          .copyWith(color: AppColors.textGrey),
-                    ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: _statusColor().withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
+                if (isCompact)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        Formatters.dateTime(sale.fechaVenta),
+                        style: AppTextStyles.labelSmall
+                            .copyWith(color: AppColors.textGrey),
                       ),
-                      child: Text(
-                        sale.estadoTexto,
-                        style: AppTextStyles.labelSmall.copyWith(
-                          color: _statusColor(),
-                          fontWeight: FontWeight.w700,
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _statusColor().withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            sale.estadoTexto,
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: _statusColor(),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          Formatters.dateTime(sale.fechaVenta),
+                          style: AppTextStyles.labelSmall
+                              .copyWith(color: AppColors.textGrey),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _statusColor().withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          sale.estadoTexto,
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: _statusColor(),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 if (sale.listaProductos.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
                     '${sale.listaProductos.length} producto${sale.listaProductos.length == 1 ? '' : 's'} · '
-                    'Efectivo: ${Formatters.currency(sale.totalEfectivo)} · '
                     'Tarjeta: ${Formatters.currency(sale.totalTarjeta)}',
                     style: AppTextStyles.labelSmall
                         .copyWith(color: AppColors.textGrey),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ],
@@ -398,7 +462,8 @@ class _CajaItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
+    return SizedBox(
+      width: double.infinity,
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -417,6 +482,7 @@ class _CajaItem extends StatelessWidget {
                 fontWeight: FontWeight.w800,
                 fontSize: 13,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
             Text(
               label,
